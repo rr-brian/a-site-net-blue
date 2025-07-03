@@ -6,7 +6,14 @@
 // Import modules
 import { addMessage, showTypingIndicator, removeTypingIndicator, updateDocumentContextUI } from './ui.js';
 import { sendMessage, downloadChatHistory, clearChat } from './chat.js';
-import { handleFileSelection, handleClearDocumentContext, setDocumentContextActive } from './document-handler.js';
+import { 
+    handleFileSelection, 
+    handleClearDocumentContext, 
+    setDocumentContextActive, 
+    resetFileAttachment,
+    currentFile as documentFile,
+    currentFileName as documentFileName
+} from './document-handler.js';
 
 // Initialize the application when the DOM is fully loaded
 document.addEventListener('DOMContentLoaded', () => {
@@ -22,8 +29,6 @@ document.addEventListener('DOMContentLoaded', () => {
     
     // Initialize document context state
     let documentContextActive = false;
-    let currentFile = null;
-    let currentFileName = null;
 
     // Auto-resize the textarea as the user types
     userInput.addEventListener('input', () => {
@@ -53,8 +58,6 @@ document.addEventListener('DOMContentLoaded', () => {
     fileInput.addEventListener('change', (e) => {
         const file = e.target.files[0];
         handleFileSelection(file, uploadButton, fileInput, chatMessages, userInput);
-        currentFile = file;
-        currentFileName = file ? file.name : null;
     });
 
     // Send message when the send button is clicked
@@ -64,16 +67,11 @@ document.addEventListener('DOMContentLoaded', () => {
             message, 
             chatMessages, 
             userInput, 
-            currentFile, 
-            currentFileName,
+            documentFile, 
+            documentFileName,
             uploadButton,
             fileInput
         );
-        // Reset file state after sending
-        if (currentFile) {
-            currentFile = null;
-            currentFileName = null;
-        }
     });
 
     // Send message when Enter key is pressed (but allow Shift+Enter for new lines)
@@ -85,16 +83,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 message, 
                 chatMessages, 
                 userInput, 
-                currentFile, 
-                currentFileName,
+                documentFile, 
+                documentFileName,
                 uploadButton,
                 fileInput
             );
-            // Reset file state after sending
-            if (currentFile) {
-                currentFile = null;
-                currentFileName = null;
-            }
         }
     });
 });

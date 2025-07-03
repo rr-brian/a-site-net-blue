@@ -50,6 +50,13 @@ namespace Backend.Services
                     _logger.LogWarning("Azure Function key not configured. Skipping conversation save.");
                     return;
                 }
+                
+                // Validate inputs to prevent sending empty messages
+                if (string.IsNullOrWhiteSpace(userMessage) || string.IsNullOrWhiteSpace(aiResponse))
+                {
+                    _logger.LogWarning("Empty message or response provided. Skipping conversation save.");
+                    return;
+                }
 
                 // Format the conversation data according to the Azure Function's expected schema
                 var messages = new[]
@@ -116,31 +123,64 @@ namespace Backend.Services
                 _logger.LogInformation("Sending conversation with ID: {ConversationId}, UserId: {UserId}, UserEmail: {UserEmail}",
                     conversationId, userId, userEmail);
                 
-                // Send the request
-                var response = await _httpClient.SendAsync(request);
-                
-                // Log response status
-                _logger.LogInformation("Azure Function response status: {StatusCode}", response.StatusCode);
-                
-                if (!response.IsSuccessStatusCode)
+                // Send the request with detailed error handling
+                try
                 {
-                    var errorContent = await response.Content.ReadAsStringAsync();
-                    _logger.LogWarning("Failed to save conversation. Status code: {StatusCode}, Error: {Error}", 
-                        response.StatusCode, errorContent);
-                }
-                else
-                {
-                    var successContent = await response.Content.ReadAsStringAsync();
-                    _logger.LogInformation("Conversation saved successfully. Response: {Response}", successContent);
+                    var response = await _httpClient.SendAsync(request);
                     
-                    // Log success details
-                    _logger.LogInformation("Successfully saved conversation with ID: {ConversationId}", conversationId);
+                    // Log response status with more context
+                    _logger.LogInformation("Azure Function response status: {StatusCode} for conversation ID: {ConversationId}", 
+                        response.StatusCode, conversationId);
+                    
+                    if (!response.IsSuccessStatusCode)
+                    {
+                        var errorContent = await response.Content.ReadAsStringAsync();
+                        
+                        // Log detailed error information including headers and request details
+                        _logger.LogError("Azure Function call failed. Status: {StatusCode}, URL: {Url}, ConversationId: {ConversationId}, Error: {Error}", 
+                            response.StatusCode, 
+                            functionUrl.Replace(functionKey, "[REDACTED]"),
+                            conversationId,
+                            !string.IsNullOrEmpty(errorContent) ? errorContent : "No error content returned");
+                            
+                        // Log response headers for debugging
+                        foreach (var header in response.Headers)
+                        {
+                            _logger.LogDebug("Response header: {Key} = {Value}", header.Key, string.Join(", ", header.Value));
+                        }
+                    }
+                    else
+                    {
+                        var successContent = await response.Content.ReadAsStringAsync();
+                        _logger.LogInformation("Conversation saved successfully. Response: {Response}", successContent);
+                        
+                        // Log success details
+                        _logger.LogInformation("Successfully saved conversation with ID: {ConversationId}", conversationId);
+                    }
+                }
+                catch (HttpRequestException httpEx)
+                {
+                    // Specific handling for HTTP request exceptions
+                    _logger.LogError(httpEx, "HTTP request error calling Azure Function: {Message}, URL: {Url}", 
+                        httpEx.Message, 
+                        functionUrl?.Replace(functionKey ?? "", "[REDACTED]"));
                 }
             }
             catch (Exception ex)
             {
-                // Log error but don't fail the main request
-                _logger.LogError(ex, "Error saving conversation: {Message}", ex.Message);
+                // Log detailed error information but don't fail the main request
+                _logger.LogError(ex, "Error saving conversation: {ExceptionType}, Message: {Message}, Stack: {StackTrace}", 
+                    ex.GetType().Name,
+                    ex.Message,
+                    ex.StackTrace?.Split('\n')[0]);
+                
+                // Log inner exception if present for more context
+                if (ex.InnerException != null)
+                {
+                    _logger.LogError("Inner exception: {Type}, {Message}", 
+                        ex.InnerException.GetType().Name,
+                        ex.InnerException.Message);
+                }
             }
         }
     }

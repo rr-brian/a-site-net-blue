@@ -24,7 +24,16 @@ function addMessage(content, sender, chatMessages, userInput) {
         
         paragraphs.forEach(paragraph => {
             const p = document.createElement('p');
-            p.textContent = paragraph;
+            
+            // Convert code blocks with backticks to proper code elements
+            if (paragraph.includes('`')) {
+                // Replace inline code
+                let formattedText = paragraph.replace(/`([^`]+)`/g, '<code>$1</code>');
+                p.innerHTML = formattedText;
+            } else {
+                p.textContent = paragraph;
+            }
+            
             messageContent.appendChild(p);
         });
     } else {
@@ -32,11 +41,39 @@ function addMessage(content, sender, chatMessages, userInput) {
         messageContent.textContent = content;
     }
     
+    // Add timestamp to message
+    const timestamp = document.createElement('div');
+    timestamp.classList.add('message-time');
+    const now = new Date();
+    timestamp.textContent = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    messageContent.appendChild(timestamp);
+    
     messageDiv.appendChild(messageContent);
     chatMessages.appendChild(messageDiv);
     
-    // Scroll to bottom
+    // Initial scroll to bottom to ensure message is visible
     chatMessages.scrollTop = chatMessages.scrollHeight;
+    
+    // Scroll behavior based on message type and length
+    if (sender === 'bot') {
+        // For bot messages, use a small delay to ensure the message has been rendered
+        // before calculating its height and adjusting scroll position
+        setTimeout(() => {
+            const messageHeight = messageDiv.offsetHeight;
+            const chatHeight = chatMessages.clientHeight;
+            
+            // If the message is more than 60% of the chat window height, scroll to the top of the message
+            if (messageHeight > chatHeight * 0.6) {
+                // Get the position of the message relative to the chat container
+                const messagePosition = messageDiv.offsetTop - chatMessages.offsetTop;
+                // Scroll to the top of the message with smooth behavior
+                chatMessages.scrollTo({
+                    top: messagePosition,
+                    behavior: 'smooth'
+                });
+            }
+        }, 50); // Small delay to ensure the message has rendered
+    }
     
     // Focus on the message input
     if (userInput) {

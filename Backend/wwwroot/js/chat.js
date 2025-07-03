@@ -20,7 +20,14 @@ async function sendMessage(
 
     // Add user message to chat
     if (currentFile) {
-        addMessage(`${message} [with file: ${currentFileName}]`, 'user', chatMessages, userInput);
+        // For messages with files, add a special note
+        addMessage(`${message}`, 'user', chatMessages, userInput);
+        
+        // Remove the file indicator UI since we're sending it now
+        const fileIndicator = document.getElementById('fileUploadIndicator');
+        if (fileIndicator) {
+            fileIndicator.remove();
+        }
     } else {
         addMessage(message, 'user', chatMessages, userInput);
     }
