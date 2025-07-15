@@ -9,8 +9,8 @@ import {
     showTypingIndicator, 
     removeTypingIndicator, 
     updateDocumentStatusIndicator 
-} from './ui.js';
-import { sendMessage, downloadChatHistory, clearChat } from './chat.js';
+} from './ui.js?v=1.0.2';
+import { sendMessage, downloadChatHistory, clearChat } from './chat.js?v=1.0.2';
 import { 
     handleFileSelection, 
     handleClearDocumentContext, 
@@ -18,8 +18,8 @@ import {
     resetFileAttachment,
     currentFile as documentFile,
     currentFileName as documentFileName
-} from './document-handler.js';
-import { updateUIDocumentState } from './api.js';
+} from './document-handler.js?v=1.0.2';
+import { updateUIDocumentState } from './api.js?v=1.0.2';
 
 // Initialize the application when the DOM is fully loaded
 document.addEventListener('DOMContentLoaded', () => {

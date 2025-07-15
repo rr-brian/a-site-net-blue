@@ -17,7 +17,7 @@ namespace Backend.Services
     {
         private readonly OpenAIClient _openAIClient;
         private readonly OpenAIConfiguration _openAIConfig;
-        private readonly DocumentChunkingService _documentChunkingService;
+        private readonly Interfaces.IDocumentChunkingService _documentChunkingService;
         private readonly Interfaces.IDocumentContextService _documentContextService;
         private readonly Interfaces.IChatAnalysisService _chatAnalysisService;
         private readonly Interfaces.IPromptEngineeringService _promptEngineeringService;
@@ -30,7 +30,7 @@ namespace Backend.Services
         public ChatService(
             OpenAIClient openAIClient,
             OpenAIConfiguration openAIConfig,
-            DocumentChunkingService documentChunkingService,
+            Interfaces.IDocumentChunkingService documentChunkingService,
             Interfaces.IDocumentContextService documentContextService,
             Interfaces.IChatAnalysisService chatAnalysisService,
             Interfaces.IPromptEngineeringService promptEngineeringService,
