@@ -4,7 +4,12 @@
  */
 
 // Import modules
-import { addMessage, showTypingIndicator, removeTypingIndicator, updateDocumentContextUI } from './ui.js';
+import { 
+    addMessage, 
+    showTypingIndicator, 
+    removeTypingIndicator, 
+    updateDocumentStatusIndicator 
+} from './ui.js';
 import { sendMessage, downloadChatHistory, clearChat } from './chat.js';
 import { 
     handleFileSelection, 
@@ -14,6 +19,7 @@ import {
     currentFile as documentFile,
     currentFileName as documentFileName
 } from './document-handler.js';
+import { updateUIDocumentState } from './api.js';
 
 // Initialize the application when the DOM is fully loaded
 document.addEventListener('DOMContentLoaded', () => {
@@ -51,8 +57,21 @@ document.addEventListener('DOMContentLoaded', () => {
         await handleClearDocumentContext(clearDocumentButton, chatMessages, userInput);
     });
     
-    // Initialize UI
-    updateDocumentContextUI(documentContextActive, clearDocumentButton);
+    // Initialize UI with document context state from localStorage
+    // Check localStorage for saved document context state
+    documentContextActive = localStorage.getItem('documentInContext') === 'true';
+    const savedDocumentName = localStorage.getItem('lastDocumentName');
+    
+    // Initialize the UI with the saved state
+    updateUIDocumentState();
+    
+    // Make sure the document status indicator is updated with saved document name
+    if (documentContextActive && savedDocumentName) {
+        console.log('Initializing document status indicator with:', savedDocumentName);
+        updateDocumentStatusIndicator(savedDocumentName);
+    } else {
+        updateDocumentStatusIndicator(null);
+    }
     
     // File upload functionality
     fileInput.addEventListener('change', (e) => {

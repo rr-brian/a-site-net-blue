@@ -1,535 +1,195 @@
 using Microsoft.AspNetCore.Mvc;
-using System.Text.Json;
-using System.Text.Json.Serialization;
-using Backend.Services;
-using Backend.Models;
-using Microsoft.AspNetCore.Http;
-using System.Collections.Generic;
 using System;
 using System.Threading.Tasks;
-using System.Linq;
+using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.Logging;
+using Backend.Models;
+using Backend.Services;
 
-namespace Backend.Controllers;
-
-[ApiController]
-[Route("api/[controller]")]
-public class ChatController : ControllerBase
+namespace Backend.Controllers
 {
-    private readonly IConfiguration _configuration;
-    private readonly ILogger<ChatController> _logger;
-    private readonly DocumentProcessingService _documentService;
-    private readonly DocumentChunkingService _chunkingService;
-    private readonly OpenAIService _openAIService;
-    private readonly AzureFunctionService _azureFunctionService;
-
-    public ChatController(
-        IConfiguration configuration, 
-        ILogger<ChatController> logger,
-        DocumentProcessingService documentService,
-        DocumentChunkingService chunkingService,
-        OpenAIService openAIService,
-        AzureFunctionService azureFunctionService)
+    /// <summary>
+    /// Handles core chat functionality without document context
+    /// </summary>
+    [ApiController]
+    [Route("api/[controller]")]
+    public class ChatController : ControllerBase
     {
-        _configuration = configuration;
-        _logger = logger;
-        _documentService = documentService;
-        _chunkingService = chunkingService;
-        _openAIService = openAIService;
-        _azureFunctionService = azureFunctionService;
-    }
-
-    public class ChatRequest
-    {
-        [JsonPropertyName("message")]
-        public string Message { get; set; } = "";
-    }
-
-    public class ChatResponse
-    {
-        [JsonPropertyName("response")]
-        public string Response { get; set; } = "";
-    }
-
-    [HttpPost]
-    public async Task<ActionResult<ChatResponse>> PostAsync([FromBody] ChatRequest request)
-    {
-        try
+        private readonly ILogger<ChatController> _logger;
+        private readonly ChatService _chatService;
+        private readonly IDocumentPersistenceService _documentPersistenceService;
+        
+        public ChatController(
+            ILogger<ChatController> logger,
+            ChatService chatService,
+            IDocumentPersistenceService documentPersistenceService)
         {
-            // Check if there's a document in the session
-            DocumentInfo? documentInfo = null;
-            string? documentSession = HttpContext.Session.GetString("CurrentDocument");
-            if (!string.IsNullOrEmpty(documentSession))
+            _logger = logger;
+            _chatService = chatService;
+            _documentPersistenceService = documentPersistenceService;
+        }
+
+        /// <summary>
+        /// Processes a chat request, with optional document context
+        /// </summary>
+        [HttpPost]
+        public async Task<ActionResult<ChatResponse>> PostAsync([FromBody] ChatRequest request)
+        {
+            try
             {
-                try
+                _logger.LogInformation("Received chat request. MaintainDocumentContext: {MaintainContext}", request.MaintainDocumentContext);
+                
+                // Get the document from our persistence service using the session ID
+                string sessionId = HttpContext.Session.Id;
+                _logger.LogInformation("Processing chat request for session ID: {SessionId}", sessionId);
+                
+                // Use client-provided session ID as a fallback if available
+                string clientSessionId = request.ClientSessionId;
+                if (!string.IsNullOrEmpty(clientSessionId))
                 {
-                    documentInfo = JsonSerializer.Deserialize<DocumentInfo>(documentSession);
-                    _logger.LogInformation("Found document in session: {FileName}", documentInfo?.FileName);
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogError(ex, "Error deserializing document from session");
-                }
-            }
-            
-            string userMessage = request.Message;
-            
-            // If we have a document, include relevant chunks in the context
-            if (documentInfo != null && documentInfo.Chunks.Any())
-            {
-                // First, check if we have a summary to provide context
-                string contextPrefix = "";
-                if (!string.IsNullOrEmpty(documentInfo.Summary))
-                {
-                    contextPrefix = $"Document summary: {documentInfo.Summary}\n\n";
+                    _logger.LogInformation("Client provided session ID: {ClientSessionId}", clientSessionId);
+                    
+                    // Store the association between server session and client session
+                    HttpContext.Session.SetString("ClientSessionId", clientSessionId);
                 }
                 
-                // Find the most relevant chunks for this query
-                // For now, we'll use a simple approach of including the first 2-3 chunks
-                // In a more advanced implementation, we could use embeddings to find the most relevant chunks
+                // Store session ID in a cookie so we can verify if it's changing between requests
+                HttpContext.Response.Cookies.Append("LastSessionId", sessionId, new CookieOptions { HttpOnly = false, IsEssential = true });
                 
-                int maxChunksToInclude = Math.Min(3, documentInfo.Chunks.Count);
-                var relevantChunks = documentInfo.Chunks.Take(maxChunksToInclude).ToList();
-                
-                string chunksText = string.Join("\n\n---\n\n", relevantChunks);
-                
-                // Create a prompt that includes both the document content and the user's question
-                userMessage = $"Based on the document named '{documentInfo.FileName}', here are the relevant sections:\n\n{contextPrefix}{chunksText}\n\nThe user asks: {request.Message}";
-                _logger.LogInformation("Added document context to message with {ChunkCount} chunks", relevantChunks.Count);
-            }
-            
-            // Get chat completion using the OpenAI service
-            string responseMessage = await _openAIService.GetChatCompletionAsync(userMessage, null);
-            
-            // Save conversation if it's not a document-based query
-            if (documentInfo == null)
-            {
-                // Fire and forget - don't await
-                _ = _azureFunctionService.SaveConversationAsync(request.Message, responseMessage);
-            }
-            
-            // Return the response
-            return new ChatResponse { Response = responseMessage };
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error processing chat request");
-            return StatusCode(500, new ChatResponse { Response = $"An error occurred while processing your request: {ex.Message}" });
-        }
-    }
-
-    // Test endpoint for Azure Function diagnostics
-    [HttpGet("env-check")]
-    public ActionResult<object> CheckEnvironmentVariables()
-    {
-        try
-        {
-            // Try different ways to access environment variables
-            var directApiKey = Environment.GetEnvironmentVariable("OPENAI_API_KEY");
-            var configApiKey = _configuration["OpenAI:ApiKey"];
-            
-            // Create dictionaries to hold the values
-            var directEnvVars = new Dictionary<string, string?>();
-            var allEnvVars = new Dictionary<string, string?>();
-            var allConfigValues = new Dictionary<string, string?>();
-            
-            // Add the OpenAI specific values
-            directEnvVars["OPENAI_API_KEY"] = directApiKey != null ? "[REDACTED]" : null;
-            directEnvVars["OPENAI_ENDPOINT"] = Environment.GetEnvironmentVariable("OPENAI_ENDPOINT");
-            directEnvVars["OPENAI_DEPLOYMENT_NAME"] = Environment.GetEnvironmentVariable("OPENAI_DEPLOYMENT_NAME");
-            directEnvVars["OPENAI_API_VERSION"] = Environment.GetEnvironmentVariable("OPENAI_API_VERSION");
-            directEnvVars["AZURE_FUNCTION_URL"] = Environment.GetEnvironmentVariable("AZURE_FUNCTION_URL");
-            directEnvVars["AZURE_FUNCTION_KEY"] = Environment.GetEnvironmentVariable("AZURE_FUNCTION_KEY") != null ? "[REDACTED]" : null;
-            directEnvVars["SCM_COMMAND_IDLE_TIMEOUT"] = Environment.GetEnvironmentVariable("SCM_COMMAND_IDLE_TIMEOUT");
-            
-            // Get all environment variables (excluding secrets)
-            foreach (System.Collections.DictionaryEntry de in Environment.GetEnvironmentVariables())
-            {
-                string? key = de.Key?.ToString();
-                if (key != null && !key.Contains("SECRET") && !key.Contains("KEY") && !key.Contains("PASSWORD"))
+                // Check if there's a cookie with previous session ID to see if it changed
+                if (HttpContext.Request.Cookies.TryGetValue("LastSessionId", out var lastSessionId))
                 {
-                    allEnvVars[key] = de.Value?.ToString() ?? string.Empty;
+                    if (lastSessionId != sessionId)
+                    {
+                        _logger.LogError("SESSION CHANGED! Previous session: {PreviousSession}, Current session: {CurrentSession}", 
+                            lastSessionId, sessionId);
+                    }
+                    else
+                    {
+                        _logger.LogInformation("Session ID consistent with previous request: {SessionId}", sessionId);
+                    }
                 }
-            }
-            
-            // Get all configuration values (excluding secrets)
-            foreach (var config in _configuration.AsEnumerable())
-            {
-                if (!config.Key.Contains("Secret") && !config.Key.Contains("Key") && !config.Key.Contains("Password"))
+                
+                // Ensure session is active and persisted
+                if (!HttpContext.Session.IsAvailable)
                 {
-                    allConfigValues[config.Key] = config.Value ?? string.Empty;
+                    _logger.LogWarning("Session is not available. Creating a new session.");
+                    HttpContext.Session.SetString("SessionCheck", "Active"); // Force session creation
+                    sessionId = HttpContext.Session.Id;
+                    _logger.LogInformation("Created new session with ID: {SessionId}", sessionId);
                 }
-            }
-            
-            // Return all the values
-            return new
-            {
-                DirectEnvironmentVariables = directEnvVars,
-                AllEnvironmentVariables = allEnvVars,
-                ConfigurationValues = allConfigValues
-            };
-        }
-        catch (Exception ex)
-        {
-            return StatusCode(500, new { error = ex.Message });
-        }
-    }
-
-    [HttpPost("with-document")]
-    public async Task<IActionResult> ChatWithDocument(IFormFile file)
-    {
-        if (file == null || file.Length == 0)
-        {
-            return BadRequest("No file uploaded");
-        }
-        
-        // Check file extension
-        var extension = Path.GetExtension(file.FileName).ToLowerInvariant();
-        if (extension != ".pdf" && extension != ".docx" && extension != ".xlsx")
-        {
-            return BadRequest("Unsupported file format. Please upload a PDF, Word, or Excel file.");
-        }
-        
-        try
-        {
-            // Extract text from the document using the document service
-            string documentText = await _documentService.ExtractTextFromDocument(file);
-            
-            if (string.IsNullOrEmpty(documentText))
-            {
-                return BadRequest("Could not extract text from the document");
-            }
-            
-            // Chunk the document text into manageable pieces
-            var documentChunks = _chunkingService.ChunkDocument(documentText, 2000); // 2000 chars per chunk
-            
-            if (documentChunks.Count == 0)
-            {
-                return BadRequest("Could not process the document content");
-            }
-            
-            _logger.LogInformation("Document chunked into {ChunkCount} chunks", documentChunks.Count);
-            
-            // Create a prompt to generate a summary of the document
-            // We'll use the first chunk or combine a few chunks if the document is small
-            string summaryText = documentChunks.Count <= 3 
-                ? string.Join("\n\n", documentChunks) 
-                : string.Join("\n\n", documentChunks.Take(3));
                 
-            string summaryPrompt = $"The following is content from a document named '{file.FileName}'. Please analyze it and provide a concise summary: \n\n{summaryText}";
-            
-            // Get summary from OpenAI
-            var summary = await _openAIService.GetChatCompletionAsync(summaryPrompt, null);
-            
-            // Store document info in session
-            var documentInfo = new DocumentInfo
-            {
-                FileName = file.FileName,
-                Chunks = documentChunks,
-                Summary = summary,
-                UploadTime = DateTime.Now
-            };
-            
-            // Store in session
-            HttpContext.Session.SetString("CurrentDocument", JsonSerializer.Serialize(documentInfo));
-            
-            _logger.LogInformation("Document stored in session with {ChunkCount} chunks and summary", documentChunks.Count);
-            
-            return Ok(new { response = summary, documentStored = true, chunkCount = documentChunks.Count });
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error processing document {FileName}", file.FileName);
-            return StatusCode(500, new { error = "Error processing document" });
-        }
-    }
-    
-    [HttpPost("with-file")]
-    public async Task<IActionResult> ChatWithFile(IFormFile file, [FromForm] string message)
-    {
-        if (file == null || file.Length == 0)
-        {
-            return BadRequest("No file uploaded");
-        }
-        
-        if (string.IsNullOrEmpty(message))
-        {
-            return BadRequest("No message provided");
-        }
-        
-        _logger.LogInformation("Received chat with file request. File: {FileName}, Message: {Message}", file.FileName, message);
-        
-        // Check file extension
-        var extension = Path.GetExtension(file.FileName).ToLowerInvariant();
-        if (extension != ".pdf" && extension != ".docx" && extension != ".xlsx")
-        {
-            return BadRequest("Unsupported file format. Please upload a PDF, Word, or Excel file.");
-        }
-        
-        try
-        {
-            // Extract text from the document
-            string documentText = await _documentService.ExtractTextFromDocument(file);
-            
-            if (string.IsNullOrEmpty(documentText))
-            {
-                return BadRequest("Could not extract text from the document");
-            }
-            
-            // Chunk the document text into manageable pieces
-            var documentChunks = _chunkingService.ChunkDocument(documentText, 2000);
-            
-            if (documentChunks.Count == 0)
-            {
-                return BadRequest("Could not process the document content");
-            }
-            
-            _logger.LogInformation("Document chunked into {ChunkCount} chunks for direct query", documentChunks.Count);
-            
-            // Create a combined prompt with document content and user's question
-            // For direct queries, we'll use more chunks if available to provide better context
-            string documentContent;
-            if (documentChunks.Count <= 5)
-            {
-                // For smaller documents, include all chunks
-                documentContent = string.Join("\n\n---\n\n", documentChunks);
-            }
-            else
-            {
-                // For larger documents, include first few chunks
-                documentContent = string.Join("\n\n---\n\n", documentChunks.Take(5));
-            }
-            
-            // Create prompt with document content and user question
-            string prompt = $"The following is content from a document named '{file.FileName}':\n\n{documentContent}\n\nBased on this document, please answer the following question: {message}";
-            
-            // Get completion from OpenAI
-            var response = await _openAIService.GetChatCompletionAsync(prompt, null);
-            
-            // We don't store this document in session since it's a one-time query
-            
-            return Ok(new { response = response });
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error processing document with message. File: {FileName}", file.FileName);
-            return StatusCode(500, new { error = "Error processing document with message" });
-        }
-    }
-
-    [HttpPost("clear-document")]
-    public IActionResult ClearDocumentContext()
-    {
-        try
-        {
-            // Remove document from session
-            HttpContext.Session.Remove("CurrentDocument");
-            _logger.LogInformation("Document context cleared from session");
-            
-            return Ok(new { success = true, message = "Document context cleared" });
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error clearing document context");
-            return StatusCode(500, new { error = "Error clearing document context" });
-        }
-    }
-    
-    public class ChatHistoryRequest
-    {
-        [JsonPropertyName("messages")]
-        public List<ChatHistoryMessage> Messages { get; set; } = new List<ChatHistoryMessage>();
-    }
-    
-    public class ChatHistoryMessage
-    {
-        [JsonPropertyName("role")]
-        public string Role { get; set; } = "";
-        
-        [JsonPropertyName("content")]
-        public string Content { get; set; } = "";
-        
-        [JsonPropertyName("timestamp")]
-        public string Timestamp { get; set; } = "";
-    }
-    
-    [HttpPost("download-history")]
-    public IActionResult DownloadChatHistory([FromBody] ChatHistoryRequest request)
-    {
-        try
-        {
-            _logger.LogInformation("Received download history request");
-            
-            // Create a JSON object with metadata and messages
-            var chatData = new
-            {
-                metadata = new
-                {
-                    title = "RAI Chat Transcript",
-                    generated = DateTime.UtcNow.ToString("o"),
-                    version = "1.0"
-                },
-                messages = request.Messages
-            };
-            
-            // Serialize to JSON with indentation
-            var jsonOptions = new JsonSerializerOptions
-            {
-                WriteIndented = true
-            };
-            string jsonContent = JsonSerializer.Serialize(chatData, jsonOptions);
-            
-            // Create a memory stream with the JSON content
-            var stream = new System.IO.MemoryStream();
-            var writer = new System.IO.StreamWriter(stream);
-            writer.Write(jsonContent);
-            writer.Flush();
-            stream.Position = 0;
-            
-            // Return as a file download
-            string fileName = $"rai-chat-{DateTime.UtcNow.ToString("yyyy-MM-dd")}.json";
-            return File(stream, "application/json", fileName);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error generating chat history download");
-            return StatusCode(500, new { error = "Error generating chat history download" });
-        }
-    }
-    
-    // Alternative endpoint that accepts form data for better browser compatibility
-    [HttpPost("download-history"), Consumes("application/x-www-form-urlencoded")]
-    public IActionResult DownloadChatHistoryForm([FromForm] string messages)
-    {
-        try
-        {
-            _logger.LogInformation("Received form-based download history request");
-            
-            // Deserialize the messages from the form data
-            ChatHistoryRequest? request = null;
-            
-            try {
-                request = JsonSerializer.Deserialize<ChatHistoryRequest>(messages);
-            }
-            catch (Exception ex) {
-                _logger.LogError(ex, "Error deserializing messages from form");
-                // Create a simple text file as fallback
-                var textStream = new System.IO.MemoryStream();
-                var textWriter = new System.IO.StreamWriter(textStream);
-                textWriter.Write("RAI Chat Transcript\r\nError processing messages. Using raw data.\r\n\r\n" + messages);
-                textWriter.Flush();
-                textStream.Position = 0;
+                DocumentInfo documentInfo = null;
                 
-                return File(textStream, "text/plain", $"rai-chat-{DateTime.UtcNow.ToString("yyyy-MM-dd")}.txt");
-            }
-            
-            if (request == null || request.Messages == null || !request.Messages.Any())
-            {
-                _logger.LogWarning("No messages found in download request");
-                var emptyStream = new System.IO.MemoryStream();
-                var emptyWriter = new System.IO.StreamWriter(emptyStream);
-                emptyWriter.Write("RAI Chat Transcript\r\nNo messages found.\r\n");
-                emptyWriter.Flush();
-                emptyStream.Position = 0;
-                
-                return File(emptyStream, "text/plain", $"rai-chat-{DateTime.UtcNow.ToString("yyyy-MM-dd")}.txt");
-            }
-            
-            // Create a JSON object with metadata and messages
-            var chatData = new
-            {
-                metadata = new
+                // If the client wants to maintain document context, get it from our persistence service
+                if (request.MaintainDocumentContext)
                 {
-                    title = "RAI Chat Transcript",
-                    generated = DateTime.UtcNow.ToString("o"),
-                    version = "1.0"
-                },
-                messages = request.Messages
-            };
-            
-            // Serialize to JSON with indentation
-            var jsonOptions = new JsonSerializerOptions
-            {
-                WriteIndented = true
-            };
-            string jsonContent = JsonSerializer.Serialize(chatData, jsonOptions);
-            
-            // Create a memory stream with the JSON content
-            var stream = new System.IO.MemoryStream();
-            var writer = new System.IO.StreamWriter(stream);
-            writer.Write(jsonContent);
-            writer.Flush();
-            stream.Position = 0;
-            
-            // Return as a file download
-            string fileName = $"rai-chat-{DateTime.UtcNow.ToString("yyyy-MM-dd")}.json";
-            return File(stream, "application/json", fileName);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error generating chat history download from form");
-            
-            // Return a simple error text file as fallback
-            var errorStream = new System.IO.MemoryStream();
-            var errorWriter = new System.IO.StreamWriter(errorStream);
-            errorWriter.Write("RAI Chat Transcript\r\nAn error occurred while generating the download.\r\n");
-            errorWriter.Flush();
-            errorStream.Position = 0;
-            
-            return File(errorStream, "text/plain", $"rai-chat-error-{DateTime.UtcNow.ToString("yyyy-MM-dd")}.txt");
-        }
-    }
-    
-    [HttpGet("test-function")]
-    public async Task<IActionResult> TestAzureFunction()
-    {
-        try
-        {
-            // Get Azure Function configuration
-            var functionUrl = _configuration["AzureFunction:Url"] ?? 
-                Environment.GetEnvironmentVariable("AZURE_FUNCTION_URL");
-            
-            var functionKey = _configuration["AzureFunction:Key"] ?? 
-                Environment.GetEnvironmentVariable("AZURE_FUNCTION_KEY");
-                
-            // Check if configuration is missing
-            if (string.IsNullOrEmpty(functionUrl))
-            {
-                return BadRequest("Azure Function URL not configured");
-            }
-            
-            if (string.IsNullOrEmpty(functionKey))
-            {
-                return BadRequest("Azure Function key not configured");
-            }
-            
-            // Create a test conversation
-            var testConversation = new
-            {
-                conversationId = Guid.NewGuid().ToString("D"),
-                userId = "test-user",
-                userEmail = "test@example.com",
-                chatType = "test",
-                messages = new[]
-                {
-                    new { role = "user", content = "This is a test message" },
-                    new { role = "assistant", content = "This is a test response" }
-                },
-                totalTokens = 0,
-                metadata = new
-                {
-                    source = "test",
-                    timestamp = DateTime.UtcNow.ToString("o")
+                    _logger.LogInformation("Maintaining document context as requested for session: {SessionId}", sessionId);
+                    
+                    // First try with server session ID
+                    documentInfo = _documentPersistenceService.GetDocument(sessionId);
+                    
+                    // If not found but we have a client session ID, try with that as fallback
+                    if (documentInfo == null && !string.IsNullOrEmpty(request.ClientSessionId))
+                    {
+                        _logger.LogWarning("Document not found with server session ID, trying client session ID: {ClientSessionId}", request.ClientSessionId);
+                        documentInfo = _documentPersistenceService.GetDocument(request.ClientSessionId);
+                        
+                        // If found with client ID, re-save with server session ID for future requests
+                        if (documentInfo != null)
+                        {
+                            _logger.LogInformation("Found document using client session ID, re-saving with server session ID");
+                            _documentPersistenceService.StoreDocument(sessionId, documentInfo);
+                        }
+                    }
+                    
+                    if (documentInfo != null)
+                    {
+                        _logger.LogInformation("SUCCESS: Retrieved document from persistence service: {FileName} with {ChunkCount} chunks for session {SessionId}",
+                            documentInfo.FileName, documentInfo.Chunks?.Count ?? 0, sessionId);
+                        
+                        // Also save with client session ID if available for redundancy
+                        if (!string.IsNullOrEmpty(request.ClientSessionId) && sessionId != request.ClientSessionId)
+                        {
+                            _logger.LogInformation("Redundantly storing document with client session ID: {ClientSessionId}", request.ClientSessionId);
+                            _documentPersistenceService.StoreDocument(request.ClientSessionId, documentInfo);
+                        }
+                        
+                        // Add detailed logging about the document chunks
+                        if (documentInfo.Chunks == null || documentInfo.Chunks.Count == 0)
+                        {
+                            _logger.LogWarning("Document exists but has NO CHUNKS. This is likely an error. Session: {SessionId}", sessionId);
+                        }
+                        else
+                        {
+                            // Log some sample chunk content for debugging
+                            _logger.LogInformation("First chunk sample for session {SessionId}: {Sample}", 
+                                sessionId,
+                                documentInfo.Chunks[0].Length > 50 ? documentInfo.Chunks[0].Substring(0, 50) + "..." : documentInfo.Chunks[0]);
+                                
+                            // Log number of chunks with metadata
+                            _logger.LogInformation("Document has {ChunkCount} chunks and {MetadataCount} metadata entries",
+                                documentInfo.Chunks.Count,
+                                documentInfo.ChunkMetadata?.Count ?? 0);
+                                
+                            // Specifically look for page 42 in chunks
+                            bool foundPage42 = false;
+                            foreach (var chunk in documentInfo.Chunks)
+                            {
+                                if (chunk.Contains("PAGE 42 OF") || chunk.Contains("DOCUMENT PAGE 42 of"))
+                                {
+                                    foundPage42 = true;
+                                    _logger.LogInformation("Found PAGE 42 in document chunks: {Preview}", 
+                                        chunk.Length > 100 ? chunk.Substring(0, 100) + "..." : chunk);
+                                    break;
+                                }
+                            }
+                            
+                            if (!foundPage42)
+                            {
+                                _logger.LogWarning("Could not find PAGE 42 in any document chunks");
+                            }
+                        }
+                    }
+                    else
+                    {
+                        _logger.LogWarning("No document found in persistence service for session {SessionId}", sessionId);
+                    }
                 }
-            };
-            
-            // Save the conversation using the Azure Function service
-            await _azureFunctionService.SaveConversationAsync("This is a test message", "This is a test response");
-            
-            return Ok(new { message = "Test conversation sent to Azure Function" });
-        }
-        catch (Exception ex)
-        {
-            return StatusCode(500, new { error = ex.Message });
+                else
+                {
+                    // If we're not maintaining document context, clear it from persistence
+                    _logger.LogInformation("Not maintaining document context, clearing any existing context");
+                    _documentPersistenceService.ClearDocument(sessionId);
+                }
+                
+                // Process the chat request with the document context if available
+                string response = await _chatService.ProcessChatRequest(request.Message, documentInfo);
+                
+                // Return document context info in the response so client knows if a document is being used
+                // ALWAYS include document info in response if we have it or if there was a document in context
+                var chatResponse = new ChatResponse { 
+                    Response = response,
+                    DocumentInContext = documentInfo != null || request.MaintainDocumentContext,
+                };
+                
+                // Explicitly include document info when available
+                if (documentInfo != null)
+                {
+                    chatResponse.DocumentInfo = new {
+                        FileName = documentInfo.FileName,
+                        ChunkCount = documentInfo.Chunks?.Count ?? 0
+                    };
+                    _logger.LogInformation("Including document info in response: {FileName}", documentInfo.FileName);
+                }
+                
+                return Ok(chatResponse);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error processing chat request");
+                return StatusCode(500, new ChatResponse { Response = "An error occurred while processing your request." });
+            }
         }
     }
 }

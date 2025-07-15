@@ -115,5 +115,26 @@ function updateDocumentContextUI(documentContextActive, clearDocumentButton) {
     }
 }
 
+// Function to update document status indicator
+function updateDocumentStatusIndicator(documentName) {
+    const statusIndicator = document.getElementById('document-status');
+    
+    if (!statusIndicator) return;
+    
+    if (documentName) {
+        statusIndicator.textContent = `Document in context: ${documentName}`;
+        statusIndicator.style.display = 'inline-block';
+    } else {
+        statusIndicator.style.display = 'none';
+        statusIndicator.textContent = '';
+    }
+}
+
 // Export functions
-export { addMessage, showTypingIndicator, removeTypingIndicator, updateDocumentContextUI };
+export { 
+    addMessage, 
+    showTypingIndicator, 
+    removeTypingIndicator, 
+    updateDocumentContextUI,
+    updateDocumentStatusIndicator 
+};

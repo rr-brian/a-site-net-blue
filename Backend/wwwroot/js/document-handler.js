@@ -3,7 +3,7 @@
  */
 
 import { addMessage } from './ui.js';
-import { clearDocumentContext } from './api.js';
+import { clearDocumentContext, updateUIDocumentState } from './api.js';
 
 // Initialize document context state
 let documentContextActive = false;
@@ -17,6 +17,9 @@ function handleFileSelection(file, uploadButton, fileInput, chatMessages, userIn
     // Store the file for the next message
     currentFile = file;
     currentFileName = file.name;
+    
+    // Store file name in localStorage for persistence
+    localStorage.setItem('lastDocumentName', file.name);
     
     // Create file upload indicator
     createFileUploadIndicator(file, chatMessages, uploadButton, fileInput, userInput);
@@ -38,6 +41,9 @@ function handleFileSelection(file, uploadButton, fileInput, chatMessages, userIn
     if (chatInputContainer) {
         chatInputContainer.classList.add('with-file');
     }
+    
+    // Update document status indicator
+    updateUIDocumentState();
     
     // Focus on the message input
     userInput.focus();
@@ -155,6 +161,11 @@ function formatFileSize(bytes) {
 function resetFileAttachment(uploadButton, fileInput) {
     currentFile = null;
     currentFileName = null;
+    
+    // Clear file name from localStorage but don't clear documentInContext
+    // as that should be managed by server interactions
+    localStorage.removeItem('lastDocumentName');
+    
     uploadButton.classList.remove('active');
     uploadButton.setAttribute('title', 'Upload Document');
     fileInput.value = '';
@@ -176,6 +187,9 @@ function resetFileAttachment(uploadButton, fileInput) {
     if (chatInputContainer) {
         chatInputContainer.classList.remove('with-file');
     }
+    
+    // Update document status indicator UI
+    updateUIDocumentState();
 }
 
 // Function to handle clearing document context
@@ -186,7 +200,9 @@ async function handleClearDocumentContext(clearDocumentButton, chatMessages, use
         
         // Update UI to show document context is cleared
         documentContextActive = false;
-        updateDocumentContextUI(clearDocumentButton);
+        
+        // Update document status UI
+        // Note: This is now handled by clearDocumentContext() API function
         
         // Add system message to chat
         addMessage("Document context has been cleared. I'm no longer using any document for context.", 'system', chatMessages, userInput);
@@ -198,19 +214,17 @@ async function handleClearDocumentContext(clearDocumentButton, chatMessages, use
 }
 
 // Function to update document context UI
-function updateDocumentContextUI(clearDocumentButton) {
-    if (documentContextActive) {
-        clearDocumentButton.classList.add('active');
-        clearDocumentButton.setAttribute('title', 'Clear Document Context (Active)');
-    } else {
-        clearDocumentButton.classList.remove('active');
-        clearDocumentButton.setAttribute('title', 'Clear Document Context (None)');
-    }
-}
+// Note: This functionality has been moved to api.js updateUIDocumentState
 
 // Function to set document context active
 function setDocumentContextActive(isActive) {
     documentContextActive = isActive;
+    
+    // Update localStorage
+    localStorage.setItem('documentInContext', isActive ? 'true' : 'false');
+    
+    // Update the UI
+    updateUIDocumentState();
 }
 
 // Export functions and state
@@ -218,7 +232,6 @@ export {
     handleFileSelection, 
     resetFileAttachment, 
     handleClearDocumentContext, 
-    updateDocumentContextUI, 
     setDocumentContextActive,
     createFileUploadIndicator,
     formatFileSize,

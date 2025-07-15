@@ -7,6 +7,9 @@ namespace Backend.Models
     {
         public string FileName { get; set; } = "";
         public List<string> Chunks { get; set; } = new List<string>();
+        public List<ChunkMetadata> ChunkMetadata { get; set; } = new List<ChunkMetadata>();
+        public int TotalLength { get; set; }
+        public Dictionary<string, List<int>> EntityIndex { get; set; } = new Dictionary<string, List<int>>();
         public string Summary { get; set; } = "";
         public DateTime UploadTime { get; set; }
         
