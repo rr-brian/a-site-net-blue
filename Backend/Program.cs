@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Server.IIS;
+using Backend.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -41,25 +42,40 @@ builder.Services.AddSession(options =>
     options.IOTimeout = TimeSpan.FromSeconds(60);
 });
 
-// Register application services
+// Register core services
+builder.Services.AddTransient<IChatService>(sp =>
+    new Backend.Services.ChatService(
+        sp.GetService<Azure.AI.OpenAI.OpenAIClient>(),
+        sp.GetRequiredService<Backend.Configuration.OpenAIConfiguration>(),
+        sp.GetRequiredService<Backend.Services.DocumentChunkingService>(),
+        sp.GetRequiredService<IDocumentContextService>(),
+        sp.GetRequiredService<IChatAnalysisService>(),
+        sp.GetRequiredService<IPromptEngineeringService>(),
+        sp.GetRequiredService<ILogger<Backend.Services.ChatService>>()
+    ));
+builder.Services.AddSingleton<Backend.Services.IDocumentPersistenceService, Backend.Services.DocumentPersistenceService>();
+builder.Services.AddSingleton<Backend.Services.SemanticChunker>();
+builder.Services.AddTransient<IDocumentProcessingService, Backend.Services.DocumentProcessingService>();
 builder.Services.AddTransient<Backend.Services.DocumentProcessingService>();
 builder.Services.AddSingleton<Backend.Services.DocumentChunkingService>();
 builder.Services.AddSingleton<Backend.Services.DocumentSearchService>();
-builder.Services.AddTransient<Backend.Services.ChatService>();
-builder.Services.AddSingleton<Backend.Services.IDocumentPersistenceService, Backend.Services.DocumentPersistenceService>(); // Add our document persistence service
-builder.Services.AddSingleton<Backend.Services.SemanticChunker>(); // Register our new SemanticChunker service
 
-// Register new refactored services
-builder.Services.AddTransient<Backend.Services.DocumentContextService>(); // New service for document context preparation
-builder.Services.AddTransient<Backend.Services.ChatAnalysisService>(); // New service for chat message analysis
-builder.Services.AddTransient<Backend.Services.PromptEngineeringService>(); // New service for prompt construction
+// Register specialized refactored services
+builder.Services.AddScoped<IDocumentContextService, DocumentContextService>();
+builder.Services.AddScoped<IChatAnalysisService, ChatAnalysisService>();
+builder.Services.AddScoped<IPromptEngineeringService, PromptEngineeringService>();
+
+// Register new maintainability services
+builder.Services.AddScoped<IFileValidationService, FileValidationService>();
+builder.Services.AddScoped<IRequestDiagnosticsService, RequestDiagnosticsService>();
+builder.Services.AddScoped<ILegacyEndpointHandler, LegacyEndpointHandler>();
 builder.Services.AddScoped<Backend.Services.OpenAIService>();
 builder.Services.AddScoped<Backend.Services.AzureFunctionService>();
 
 // Add OpenAI Configuration
 builder.Services.AddSingleton<Backend.Configuration.OpenAIConfiguration>();
 
-// Add Azure OpenAI Client using our configuration adapter
+// Define a null object implementation of OpenAIClient for when config is missing
 builder.Services.AddSingleton<Azure.AI.OpenAI.OpenAIClient>(sp => 
 {
     var openAIConfig = sp.GetRequiredService<Backend.Configuration.OpenAIConfiguration>();
@@ -70,7 +86,10 @@ builder.Services.AddSingleton<Azure.AI.OpenAI.OpenAIClient>(sp =>
         if (!openAIConfig.IsConfigured)
         {
             logger.LogWarning("OpenAI configuration is missing or incomplete. Some features will not work.");
-            return null;
+            
+            // Use an empty endpoint that will fail gracefully rather than returning null
+            return new Azure.AI.OpenAI.OpenAIClient(
+                new Azure.AzureKeyCredential("dummy-key-for-null-implementation"));
         }
         
         logger.LogInformation("Initializing Azure OpenAI client with endpoint: {Endpoint}", openAIConfig.Endpoint);
@@ -88,13 +107,19 @@ builder.Services.AddSingleton<Azure.AI.OpenAI.OpenAIClient>(sp =>
         catch (Exception innerEx) 
         {
             logger.LogError(innerEx, "Error creating OpenAI client: {Message}", innerEx.Message);
-            return null;
+            
+            // Use an empty endpoint that will fail gracefully rather than returning null
+            return new Azure.AI.OpenAI.OpenAIClient(
+                new Azure.AzureKeyCredential("dummy-key-for-error-fallback"));
         }
     }
     catch (Exception ex)
     {
-        logger.LogError(ex, "Failed to initialize Azure OpenAI client: {Message}", ex.Message);
-        return null;
+        logger.LogError(ex, "Unexpected error initializing OpenAI client: {Message}", ex.Message);
+        
+        // Use an empty endpoint that will fail gracefully rather than returning null
+        return new Azure.AI.OpenAI.OpenAIClient(
+            new Azure.AzureKeyCredential("dummy-key-for-exception-handler"));
     }
 });
 
