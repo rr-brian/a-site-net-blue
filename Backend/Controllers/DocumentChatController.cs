@@ -85,7 +85,8 @@ namespace Backend.Controllers
                 }
                 
                 // Verify file stream is available
-                try {
+                try 
+                {
                     using var stream = file.OpenReadStream();
                     _logger.LogDebug("File stream opened successfully");
                 } 
@@ -94,67 +95,95 @@ namespace Backend.Controllers
                     _logger.LogError(streamEx, "ChatWithFile: Error opening file stream");
                     return StatusCode(500, new { error = $"Unable to read file: {streamEx.Message}" });
                 }
+                
+                // Extract text from the document
+                string documentText;
                 try
                 {
-                    // Extract text from the document
-                    string documentText = await _documentProcessingService.ExtractTextFromDocument(file);
+                    documentText = await _documentProcessingService.ExtractTextFromDocument(file);
                     
                     if (string.IsNullOrEmpty(documentText))
                     {
                         _logger.LogError("ChatWithFile: Document text extraction failed - empty result");
                         return BadRequest("Could not extract text from the document");
                     }
+                }
+                catch (Exception extractEx)
+                {
+                    _logger.LogError(extractEx, "ChatWithFile: Error extracting text from document");
+                    return StatusCode(500, new { error = $"Error extracting text: {extractEx.Message}" });
+                }
+                
+                _logger.LogInformation("Extracted {Length} characters from document {FileName}", documentText.Length, file.FileName);
+                
+                // Use our semantic chunker for improved document processing
+                DocumentInfo documentInfo;
+                try
+                {
+                    documentInfo = _semanticChunker.ProcessDocument(documentText, file.FileName);
                     
-                    _logger.LogInformation("Extracted {Length} characters from document {FileName}", documentText.Length, file.FileName);
-                
-                    // Use our new semantic chunker for improved document processing
-                    var documentInfo = _semanticChunker.ProcessDocument(documentText, file.FileName);
-                
                     if (documentInfo == null || documentInfo.Chunks == null || documentInfo.Chunks.Count == 0)
                     {
                         _logger.LogError("ChatWithFile: Document chunking failed");
                         return BadRequest("Document chunking failed");
                     }
+                }
+                catch (Exception chunkEx)
+                {
+                    _logger.LogError(chunkEx, "ChatWithFile: Error during document chunking");
+                    return StatusCode(500, new { error = $"Error processing document: {chunkEx.Message}" });
+                }
                 
-                    _logger.LogInformation("Semantic chunker created {Count} chunks with improved entity detection", documentInfo.Chunks.Count);
-                    
-                    // Log if we found ITA Group in the document
-                    if (documentInfo.EntityIndex.ContainsKey("ITA Group"))
-                    {
-                        var itaChunks = documentInfo.EntityIndex["ITA Group"];
-                        _logger.LogInformation("Found ITA Group in {Count} chunks", itaChunks.Count);
-                        foreach (var chunkIndex in itaChunks.Take(3)) // Log up to 3 examples
-                        {
-                            _logger.LogInformation("ITA Group mention in chunk {Index}: {Preview}", 
-                                chunkIndex, 
-                                documentInfo.Chunks[chunkIndex].Length > 50 
-                                    ? documentInfo.Chunks[chunkIndex].Substring(0, 50) + "..." 
-                                    : documentInfo.Chunks[chunkIndex]);
-                        }
-                    }
-                    
-                    // Process the chat with the document
-                    string response = await _chatService.ProcessChatRequest(message, documentInfo);
-                    
-                    // Store document in our persistence service for future queries
-                    string sessionId = HttpContext.Session.Id;
-                    
-                    // Check if client provided a session ID from method parameter first
-                    string clientSessionIdToUse = clientSessionId;
-                    
-                    // If not provided as parameter, check form data as fallback
-                    if (string.IsNullOrEmpty(clientSessionIdToUse) && HttpContext.Request.Form.ContainsKey("clientSessionId"))
-                    {
-                        clientSessionIdToUse = HttpContext.Request.Form["clientSessionId"];
-                        _logger.LogInformation("Client session ID from form data: {ClientSessionId}", clientSessionIdToUse);
-                    }
-                    
-                    if (!string.IsNullOrEmpty(clientSessionIdToUse))
-                    {
-                        _logger.LogInformation("Using client session ID: {ClientSessionId}", clientSessionIdToUse);
-                    }
+                _logger.LogInformation("Semantic chunker created {Count} chunks with improved entity detection", documentInfo.Chunks.Count);
                 
-                    // Store using server session ID
+                // Log if we found ITA Group in the document
+                if (documentInfo.EntityIndex.ContainsKey("ITA Group"))
+                {
+                    var itaChunks = documentInfo.EntityIndex["ITA Group"];
+                    _logger.LogInformation("Found ITA Group in {Count} chunks", itaChunks.Count);
+                    foreach (var chunkIndex in itaChunks.Take(3)) // Log up to 3 examples
+                    {
+                        _logger.LogInformation("ITA Group mention in chunk {Index}: {Preview}", 
+                            chunkIndex, 
+                            documentInfo.Chunks[chunkIndex].Length > 50 
+                                ? documentInfo.Chunks[chunkIndex].Substring(0, 50) + "..." 
+                                : documentInfo.Chunks[chunkIndex]);
+                    }
+                }
+                
+                // Process the chat with the document
+                string response;
+                try
+                {
+                    response = await _chatService.ProcessChatRequest(message, documentInfo);
+                }
+                catch (Exception chatEx)
+                {
+                    _logger.LogError(chatEx, "ChatWithFile: Error during chat processing");
+                    return StatusCode(500, new { error = $"Error processing chat: {chatEx.Message}" });
+                }
+                
+                // Store document in our persistence service for future queries
+                string sessionId = HttpContext.Session.Id;
+                
+                // Check if client provided a session ID from method parameter first
+                string clientSessionIdToUse = clientSessionId;
+                
+                // If not provided as parameter, check form data as fallback
+                if (string.IsNullOrEmpty(clientSessionIdToUse) && HttpContext.Request.Form.ContainsKey("clientSessionId"))
+                {
+                    clientSessionIdToUse = HttpContext.Request.Form["clientSessionId"];
+                    _logger.LogInformation("Client session ID from form data: {ClientSessionId}", clientSessionIdToUse);
+                }
+                
+                if (!string.IsNullOrEmpty(clientSessionIdToUse))
+                {
+                    _logger.LogInformation("Using client session ID: {ClientSessionId}", clientSessionIdToUse);
+                }
+            
+                // Store using server session ID
+                try
+                {
                     _documentPersistenceService.StoreDocument(sessionId, documentInfo);
                     _logger.LogInformation("Document saved using server session ID: {SessionId}", sessionId);
                     
@@ -171,24 +200,29 @@ namespace Backend.Controllers
                     {
                         _logger.LogWarning("No client session ID provided with file upload - document only stored with server session ID");
                     }
-                    
-                    _logger.LogInformation("Document saved to persistence service: {FileName} with {ChunkCount} chunks", 
-                        documentInfo.FileName, documentInfo.Chunks.Count);
-                    
-                    return Ok(new { 
-                        response = response, 
-                        documentStored = true,
-                        documentInContext = true,
-                        documentInfo = new {
-                            fileName = documentInfo.FileName,
-                            chunkCount = documentInfo.Chunks.Count
-                        }
-                    });
                 }
+                catch (Exception storeEx)
+                {
+                    _logger.LogError(storeEx, "ChatWithFile: Error storing document in persistence service");
+                    // Continue despite storage error - we can still return the chat response
+                }
+                
+                _logger.LogInformation("Document saved to persistence service: {FileName} with {ChunkCount} chunks", 
+                    documentInfo.FileName, documentInfo.Chunks.Count);
+                
+                return Ok(new { 
+                    response = response, 
+                    documentStored = true,
+                    documentInContext = true,
+                    documentInfo = new {
+                        fileName = documentInfo.FileName,
+                        chunkCount = documentInfo.Chunks.Count
+                    }
+                });
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error processing file {FileName}: {ErrorMessage}", file.FileName, ex.Message);
+                _logger.LogError(ex, "Error processing file {FileName}: {ErrorMessage}", file?.FileName ?? "unknown", ex.Message);
                 if (ex.InnerException != null)
                 {
                     _logger.LogError("Inner exception: {InnerMessage}", ex.InnerException.Message);
