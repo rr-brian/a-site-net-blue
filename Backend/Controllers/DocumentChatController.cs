@@ -23,8 +23,8 @@ namespace Backend.Controllers
         private readonly IConfiguration _configuration;
         private readonly Backend.Services.Interfaces.IChatService _chatService;
         private readonly Backend.Services.Interfaces.IDocumentProcessingService _documentProcessingService;
-        private readonly DocumentChunkingService _documentChunkingService;
-        private readonly SemanticChunker _semanticChunker;
+        private readonly Backend.Services.Interfaces.IDocumentChunkingService _documentChunkingService;
+        private readonly Backend.Services.Interfaces.ISemanticChunker _semanticChunker;
         private readonly Backend.Services.Interfaces.IDocumentPersistenceService _documentPersistenceService;
         private readonly Backend.Services.Interfaces.IFileValidationService _fileValidationService;
         private readonly Backend.Services.Interfaces.IRequestDiagnosticsService _requestDiagnosticsService;
@@ -37,8 +37,8 @@ namespace Backend.Controllers
             IConfiguration configuration,
             Backend.Services.Interfaces.IChatService chatService,
             Backend.Services.Interfaces.IDocumentProcessingService documentService,
-            DocumentChunkingService documentChunkingService,
-            SemanticChunker semanticChunker,
+            Backend.Services.Interfaces.IDocumentChunkingService documentChunkingService,
+            Backend.Services.Interfaces.ISemanticChunker semanticChunker,
             Backend.Services.Interfaces.IDocumentPersistenceService documentPersistenceService,
             Backend.Services.Interfaces.IFileValidationService fileValidationService,
             Backend.Services.Interfaces.IRequestDiagnosticsService requestDiagnosticsService,

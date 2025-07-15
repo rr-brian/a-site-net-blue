@@ -18,12 +18,12 @@ namespace Backend.Controllers
     public class ChatController : ControllerBase
     {
         private readonly ILogger<ChatController> _logger;
-        private readonly ChatService _chatService;
+        private readonly Backend.Services.Interfaces.IChatService _chatService;
         private readonly Backend.Services.Interfaces.IDocumentPersistenceService _documentPersistenceService;
         
         public ChatController(
             ILogger<ChatController> logger,
-            ChatService chatService,
+            Backend.Services.Interfaces.IChatService chatService,
             Backend.Services.Interfaces.IDocumentPersistenceService documentPersistenceService)
         {
             _logger = logger;

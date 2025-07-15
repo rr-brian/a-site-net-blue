@@ -141,23 +141,63 @@ namespace Backend.Services
                 try
                 {
                     // Extract text from the document
-                    string documentText = await _documentProcessingService.ExtractTextFromDocument(file);
-                    _logger.LogInformation("Extracted {Length} characters from document", documentText.Length);
+                    string documentText;
+                    try
+                    {
+                        _logger.LogInformation("Attempting to extract text from document: {FileName}, {Length} bytes", file.FileName, file.Length);
+                        documentText = await _documentProcessingService.ExtractTextFromDocument(file);
+                        _logger.LogInformation("Successfully extracted {Length} characters from document", documentText.Length);
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError(ex, "Failed to extract text from document: {FileName}. Error: {Message}", file.FileName, ex.Message);
+                        if (ex.InnerException != null)
+                        {
+                            _logger.LogError("Inner exception: {Message}", ex.InnerException.Message);
+                        }
+                        return new ObjectResult(new { error = $"Error extracting text from file: {ex.Message}" }) { StatusCode = 500 };
+                    }
                     
                     // Extract search terms and page references from the message
                     var searchTerms = _chatAnalysisService.ExtractSearchTerms(message);
                     var pageReferences = _chatAnalysisService.ExtractPageReferences(message);
                     
                     // Process the document
-                    var documentInfo = await _documentContextService.ProcessDocumentAsync(
-                        documentText, 
-                        file.FileName, 
-                        searchTerms, 
-                        pageReferences);
+                    DocumentInfo documentInfo;
+                    try {
+                        _logger.LogInformation("Processing document with DocumentContextService: {Length} chars of text from {FileName}", 
+                            documentText.Length, file.FileName);
+                            
+                        documentInfo = await _documentContextService.ProcessDocumentAsync(
+                            documentText, 
+                            file.FileName, 
+                            searchTerms, 
+                            pageReferences);
+                            
+                        if (documentInfo == null || documentInfo.Chunks == null || documentInfo.Chunks.Count == 0)
+                        {
+                            _logger.LogError("ProcessDocumentAsync returned null or empty documentInfo");
+                            return new ObjectResult(new { error = "Error processing document: Document processing failed" }) { StatusCode = 500 };
+                        }
+                        
+                        _logger.LogInformation("Successfully processed document into {ChunkCount} chunks", documentInfo.Chunks.Count);
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError(ex, "Error processing document text: {Message}", ex.Message);
+                        return new ObjectResult(new { error = $"Error processing document: {ex.Message}" }) { StatusCode = 500 };
+                    }
                     
                     // Store the document using persistence service with the session ID
-                    await _documentPersistenceService.StoreDocumentAsync(sessionId, documentInfo);
-                    _logger.LogInformation("Document saved with session ID: {SessionId}", sessionId);
+                    try {
+                        await _documentPersistenceService.StoreDocumentAsync(sessionId, documentInfo);
+                        _logger.LogInformation("Document saved with session ID: {SessionId}", sessionId);
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError(ex, "Error storing document: {Message}", ex.Message);
+                        // Continue even if storage fails - we can still process this request
+                    }
                     
                     // Also store with client session ID if available
                     if (!string.IsNullOrEmpty(clientSessionId))
@@ -166,16 +206,28 @@ namespace Backend.Services
                         _logger.LogInformation("Document also saved with client session ID: {ClientSessionId}", clientSessionId);
                     }
                     
-                    // Get the response from the chat service
+                    // Process the chat request with the document info
                     string responseText;
-                    if (documentInfo != null)
+                    try
                     {
-                        responseText = await _chatService.ProcessChatRequest(message, documentInfo);
+                        if (documentInfo != null) 
+                        {
+                            _logger.LogInformation("Processing chat request with document context. Document: {FileName}, {ChunkCount} chunks",
+                                documentInfo.FileName, documentInfo.Chunks?.Count ?? 0);
+                            responseText = await _chatService.ProcessChatRequest(message, documentInfo);
+                        }
+                        else
+                        {
+                            _logger.LogWarning("DocumentInfo is unexpectedly null before chat processing in legacy endpoint handler");
+                            responseText = await _chatService.ProcessChatRequest(message);
+                        }
+                        
+                        _logger.LogInformation("Successfully generated chat response: {Length} chars", responseText?.Length ?? 0);
                     }
-                    else
+                    catch (Exception ex)
                     {
-                        _logger.LogWarning("DocumentInfo is unexpectedly null before chat processing in legacy endpoint handler");
-                        responseText = await _chatService.ProcessChatRequest(message);
+                        _logger.LogError(ex, "Error processing chat request: {Message}", ex.Message);
+                        return new ObjectResult(new { error = $"Error generating response: {ex.Message}" }) { StatusCode = 500 };
                     }
                     
                     // Create response object

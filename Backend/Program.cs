@@ -44,23 +44,12 @@ builder.Services.AddSession(options =>
 });
 
 // Register core services
-builder.Services.AddTransient<Backend.Services.Interfaces.IChatService>(sp =>
-    new Backend.Services.ChatService(
-        sp.GetService<Azure.AI.OpenAI.OpenAIClient>(),
-        sp.GetRequiredService<Backend.Configuration.OpenAIConfiguration>(),
-        sp.GetRequiredService<Backend.Services.DocumentChunkingService>(),
-        (Backend.Services.DocumentContextService)sp.GetRequiredService<Backend.Services.Interfaces.IDocumentContextService>(),
-        (Backend.Services.ChatAnalysisService)sp.GetRequiredService<Backend.Services.Interfaces.IChatAnalysisService>(),
-        (Backend.Services.PromptEngineeringService)sp.GetRequiredService<Backend.Services.Interfaces.IPromptEngineeringService>(),
-        sp.GetRequiredService<ILogger<Backend.Services.ChatService>>()
-    ));
 builder.Services.AddTransient<Backend.Services.Interfaces.IChatService, Backend.Services.ChatService>();
 builder.Services.AddSingleton<Backend.Services.Interfaces.IDocumentPersistenceService, Backend.Services.DocumentPersistenceService>();
-builder.Services.AddSingleton<Backend.Services.SemanticChunker>();
+builder.Services.AddSingleton<Backend.Services.Interfaces.ISemanticChunker, Backend.Services.SemanticChunker>();
 builder.Services.AddTransient<Backend.Services.Interfaces.IDocumentProcessingService, Backend.Services.DocumentProcessingService>();
-builder.Services.AddTransient<Backend.Services.DocumentProcessingService>();
-builder.Services.AddSingleton<Backend.Services.DocumentChunkingService>();
-builder.Services.AddSingleton<Backend.Services.DocumentSearchService>();
+builder.Services.AddSingleton<Backend.Services.Interfaces.IDocumentChunkingService, Backend.Services.DocumentChunkingService>();
+builder.Services.AddSingleton<Backend.Services.Interfaces.IDocumentSearchService, Backend.Services.DocumentSearchService>();
 
 // Register specialized refactored services
 builder.Services.AddScoped<Backend.Services.Interfaces.IDocumentContextService, Backend.Services.DocumentContextService>();
@@ -71,8 +60,8 @@ builder.Services.AddScoped<Backend.Services.Interfaces.IPromptEngineeringService
 builder.Services.AddScoped<Backend.Services.Interfaces.IFileValidationService, Backend.Services.FileValidationService>();
 builder.Services.AddScoped<Backend.Services.Interfaces.IRequestDiagnosticsService, Backend.Services.RequestDiagnosticsService>();
 builder.Services.AddScoped<Backend.Services.Interfaces.ILegacyEndpointHandler, Backend.Services.LegacyEndpointHandler>();
-builder.Services.AddScoped<Backend.Services.OpenAIService>();
-builder.Services.AddScoped<Backend.Services.AzureFunctionService>();
+builder.Services.AddScoped<Backend.Services.Interfaces.IOpenAIService, Backend.Services.OpenAIService>();
+builder.Services.AddScoped<Backend.Services.Interfaces.IAzureFunctionService, Backend.Services.AzureFunctionService>();
 
 // Add OpenAI Configuration
 builder.Services.AddSingleton<Backend.Configuration.OpenAIConfiguration>();
