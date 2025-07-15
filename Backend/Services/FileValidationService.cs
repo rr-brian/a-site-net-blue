@@ -6,6 +6,7 @@ using System.Linq;
 using System.Threading.Tasks;
 
 namespace Backend.Services
+{
 
     /// <summary>
     /// Implementation of file validation service
