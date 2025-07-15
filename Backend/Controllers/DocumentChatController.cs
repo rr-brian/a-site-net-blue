@@ -2,11 +2,15 @@ using Microsoft.AspNetCore.Mvc;
 using System;
 using System.IO;
 using System.Threading.Tasks;
+using System.Collections.Generic;
+using System.Linq;
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Http.Extensions;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using Backend.Models;
 using Backend.Services;
+using Backend.Configuration;
 
 namespace Backend.Controllers
 {
@@ -16,20 +20,30 @@ namespace Backend.Controllers
     {
         private readonly ILogger<DocumentChatController> _logger;
         private readonly IConfiguration _configuration;
-        private readonly ChatService _chatService;
-        private readonly DocumentProcessingService _documentProcessingService;
+        private readonly IChatService _chatService;
+        private readonly IDocumentProcessingService _documentProcessingService;
         private readonly DocumentChunkingService _documentChunkingService;
         private readonly SemanticChunker _semanticChunker;
         private readonly IDocumentPersistenceService _documentPersistenceService;
+        private readonly IFileValidationService _fileValidationService;
+        private readonly IRequestDiagnosticsService _requestDiagnosticsService;
+        private readonly IDocumentContextService _documentContextService;
+        private readonly IChatAnalysisService _chatAnalysisService;
+        private readonly IPromptEngineeringService _promptEngineeringService;
         
         public DocumentChatController(
             ILogger<DocumentChatController> logger,
             IConfiguration configuration,
-            ChatService chatService,
-            DocumentProcessingService documentService,
+            IChatService chatService,
+            IDocumentProcessingService documentService,
             DocumentChunkingService documentChunkingService,
             SemanticChunker semanticChunker,
-            IDocumentPersistenceService documentPersistenceService)
+            IDocumentPersistenceService documentPersistenceService,
+            IFileValidationService fileValidationService,
+            IRequestDiagnosticsService requestDiagnosticsService,
+            IDocumentContextService documentContextService,
+            IChatAnalysisService chatAnalysisService,
+            IPromptEngineeringService promptEngineeringService)
         {
             _logger = logger;
             _configuration = configuration;
@@ -38,94 +52,79 @@ namespace Backend.Controllers
             _documentChunkingService = documentChunkingService;
             _semanticChunker = semanticChunker;
             _documentPersistenceService = documentPersistenceService;
+            _fileValidationService = fileValidationService;
+            _requestDiagnosticsService = requestDiagnosticsService;
+            _documentContextService = documentContextService;
+            _chatAnalysisService = chatAnalysisService;
+            _promptEngineeringService = promptEngineeringService;
         }
 
         [HttpPost("with-file")]
-        public async Task<IActionResult> ChatWithFile(IFormFile file, [FromForm] string message, [FromForm] string clientSessionId = null)
+        [RequestSizeLimit(52428800)] // 50MB limit explicitly set for this endpoint
+        [RequestFormLimits(MultipartBodyLengthLimit = 52428800)] // 50MB for multipart
+        public async Task<IActionResult> ChatWithFile(IFormFile file, [FromForm] string message, [FromForm] string? clientSessionId = null)
         {
-            _logger.LogInformation("DocumentChatController.ChatWithFile called with: File={FileName}, FileSize={FileSize}, Message={MessageLength}, ClientSessionId={SessionId}",
-                file?.FileName ?? "<no file>", 
-                file?.Length ?? 0,
-                message?.Length ?? 0, 
-                clientSessionId ?? "<not provided>");
+            // Log request details
+            _requestDiagnosticsService.LogRequestDetails(HttpContext);
             
             try
             {
-                // Validate all required parameters
-                if (file == null)
+                _logger.LogInformation("DocumentChatController.ChatWithFile called");
+                
+                // Log detailed file information
+                _requestDiagnosticsService.LogFileDetails(file);
+                
+                // Validate file
+                var (isValid, errorMessage) = await _fileValidationService.ValidateFileAsync(file);
+                if (!isValid)
                 {
-                    _logger.LogError("ChatWithFile: File parameter is null");
-                    return BadRequest("No file provided");
+                    _logger.LogError("ChatWithFile: File validation failed: {ErrorMessage}", errorMessage);
+                    return BadRequest(errorMessage);
                 }
                 
-                if (file.Length == 0)
-                {
-                    _logger.LogError("ChatWithFile: File is empty. FileName: {FileName}", file.FileName);
-                    return BadRequest("File is empty");
-                }
-                
+                // Validate message
                 if (string.IsNullOrEmpty(message))
                 {
                     _logger.LogError("ChatWithFile: Message parameter is empty or null");
                     return BadRequest("No message provided");
                 }
                 
-                // Log file details for debugging
-                _logger.LogInformation("ChatWithFile processing file: Name={FileName}, ContentType={ContentType}, Size={Size}", 
-                    file.FileName,
-                    file.ContentType,
-                    file.Length);
+                // Extract search terms from the message to better prioritize relevant content
+                var searchTerms = _chatAnalysisService.ExtractSearchTerms(message);
+                var pageReferences = _chatAnalysisService.ExtractPageReferences(message);
                 
-                // Check file extension
-                var extension = Path.GetExtension(file.FileName).ToLowerInvariant();
-                if (extension != ".pdf" && extension != ".docx" && extension != ".xlsx")
-                {
-                    _logger.LogError("ChatWithFile: Unsupported file format: {Extension}", extension);
-                    return BadRequest($"Unsupported file format: {extension}. Please upload a PDF, Word, or Excel file.");
-                }
-                
-                // Verify file stream is available
-                try 
-                {
-                    using var stream = file.OpenReadStream();
-                    _logger.LogDebug("File stream opened successfully");
-                } 
-                catch (Exception streamEx) 
-                {
-                    _logger.LogError(streamEx, "ChatWithFile: Error opening file stream");
-                    return StatusCode(500, new { error = $"Unable to read file: {streamEx.Message}" });
-                }
+                _logger.LogInformation("Extracted {Count} search terms and {PageCount} page references from message", 
+                    searchTerms.Count, pageReferences.Count);
                 
                 // Extract text from the document
                 string documentText;
                 try
                 {
+                    _logger.LogInformation("Extracting text from document: {FileName}", file.FileName);
                     documentText = await _documentProcessingService.ExtractTextFromDocument(file);
-                    
-                    if (string.IsNullOrEmpty(documentText))
-                    {
-                        _logger.LogError("ChatWithFile: Document text extraction failed - empty result");
-                        return BadRequest("Could not extract text from the document");
-                    }
+                    _logger.LogInformation("Successfully extracted {TextLength} characters from document", documentText.Length);
                 }
-                catch (Exception extractEx)
+                catch (Exception ex)
                 {
-                    _logger.LogError(extractEx, "ChatWithFile: Error extracting text from document");
-                    return StatusCode(500, new { error = $"Error extracting text: {extractEx.Message}" });
+                    _logger.LogError(ex, "ChatWithFile: Error extracting text from document: {Message}", ex.Message);
+                    if (ex.InnerException != null) {
+                        _logger.LogError("Inner exception: {Message}", ex.InnerException.Message);
+                    }
+                    return StatusCode(500, new { error = $"Unable to extract text from document: {ex.Message}" });
                 }
                 
-                _logger.LogInformation("Extracted {Length} characters from document {FileName}", documentText.Length, file.FileName);
+                _logger.LogInformation("Extracted {TextLength} characters of text from document", documentText.Length);
                 
-                // Use our semantic chunker for improved document processing
+                // Process the document using our DocumentContextService
                 DocumentInfo documentInfo;
                 try
                 {
-                    documentInfo = _semanticChunker.ProcessDocument(documentText, file.FileName);
+                    documentInfo = await _documentContextService.ProcessDocumentAsync(documentText, file.FileName, searchTerms, pageReferences);
                     
                     if (documentInfo == null || documentInfo.Chunks == null || documentInfo.Chunks.Count == 0)
                     {
-                        _logger.LogError("ChatWithFile: Document chunking failed");
-                        return BadRequest("Document chunking failed");
+                        _logger.LogError("ChatWithFile: Document processing failed");
+                        return BadRequest("Document processing failed");
                     }
                 }
                 catch (Exception chunkEx)
@@ -151,64 +150,77 @@ namespace Backend.Controllers
                     }
                 }
                 
+                // Get the server session ID
+                string sessionId = HttpContext.Session.Id;
+                _logger.LogInformation("Server session ID: {SessionId}", sessionId);
+                
+                // Handle client-provided session ID if any
+                string clientSessionIdToUse = clientSessionId;
+                if (string.IsNullOrEmpty(clientSessionIdToUse))
+                {
+                    // Try to get from session if not provided directly
+                    clientSessionIdToUse = HttpContext.Session.GetString("ClientSessionId");
+                }
+                
+                // Store the document using persistence service with both session IDs
+                try
+                {
+                    // Store with server session ID
+                    await _documentPersistenceService.StoreDocumentAsync(sessionId, documentInfo);
+                    _logger.LogInformation("Document saved with server session ID: {SessionId}", sessionId);
+                    
+                    // Also store with client session ID if available
+                    if (!string.IsNullOrEmpty(clientSessionIdToUse))
+                    {
+                        await _documentPersistenceService.StoreDocumentAsync(clientSessionIdToUse, documentInfo);
+                        _logger.LogInformation("Document also saved with client session ID: {ClientSessionId}", clientSessionIdToUse);
+                        
+                        // Remember this client session ID for future use
+                        HttpContext.Session.SetString("ClientSessionId", clientSessionIdToUse);
+                    }
+                    else
+                    {
+                        _logger.LogWarning("No client session ID provided - document only stored with server session ID");
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "ChatWithFile: Error storing document: {Message}", ex.Message);
+                    // Continue despite storage error - we can still return the chat response
+                }
+                
+                _logger.LogInformation("Document saved to persistence service: {FileName} with {ChunkCount} chunks", 
+                    documentInfo.FileName, documentInfo.Chunks.Count);
+                
                 // Process the chat with the document
                 string response;
                 try
                 {
-                    response = await _chatService.ProcessChatRequest(message, documentInfo);
+                    // Prepare document context using the DocumentContextService
+                    string documentContext = _documentContextService.PrepareDocumentContext(documentInfo, message);
+                    _logger.LogInformation("Prepared document context: {Length} characters", documentContext?.Length ?? 0);
+                    
+                    // Create system prompt using the PromptEngineeringService - this is now done internally by ProcessChatRequest
+                    _logger.LogInformation("Using document context for chat request");
+                    
+                    // Process the chat request with document context
+                    // The systemPrompt parameter has been removed as it's now handled internally by the ChatService
+                    // Ensure documentInfo is not null (even though it should never be at this point)
+                    if (documentInfo != null)
+                    {
+                        response = await _chatService.ProcessChatRequest(message, documentInfo);
+                    }
+                    else
+                    {
+                        _logger.LogWarning("DocumentInfo is unexpectedly null before chat processing");
+                        response = await _chatService.ProcessChatRequest(message);
+                    }
                 }
                 catch (Exception chatEx)
                 {
                     _logger.LogError(chatEx, "ChatWithFile: Error during chat processing");
                     return StatusCode(500, new { error = $"Error processing chat: {chatEx.Message}" });
                 }
-                
-                // Store document in our persistence service for future queries
-                string sessionId = HttpContext.Session.Id;
-                
-                // Check if client provided a session ID from method parameter first
-                string clientSessionIdToUse = clientSessionId;
-                
-                // If not provided as parameter, check form data as fallback
-                if (string.IsNullOrEmpty(clientSessionIdToUse) && HttpContext.Request.Form.ContainsKey("clientSessionId"))
-                {
-                    clientSessionIdToUse = HttpContext.Request.Form["clientSessionId"];
-                    _logger.LogInformation("Client session ID from form data: {ClientSessionId}", clientSessionIdToUse);
-                }
-                
-                if (!string.IsNullOrEmpty(clientSessionIdToUse))
-                {
-                    _logger.LogInformation("Using client session ID: {ClientSessionId}", clientSessionIdToUse);
-                }
-            
-                // Store using server session ID
-                try
-                {
-                    _documentPersistenceService.StoreDocument(sessionId, documentInfo);
-                    _logger.LogInformation("Document saved using server session ID: {SessionId}", sessionId);
-                    
-                    // Also store using client session ID if available
-                    if (!string.IsNullOrEmpty(clientSessionIdToUse))
-                    {
-                        _documentPersistenceService.StoreDocument(clientSessionIdToUse, documentInfo);
-                        _logger.LogInformation("Document also saved using client session ID: {ClientSessionId}", clientSessionIdToUse);
-                        
-                        // Store client session ID in session for future reference
-                        HttpContext.Session.SetString("ClientSessionId", clientSessionIdToUse);
-                    }
-                    else
-                    {
-                        _logger.LogWarning("No client session ID provided with file upload - document only stored with server session ID");
-                    }
-                }
-                catch (Exception storeEx)
-                {
-                    _logger.LogError(storeEx, "ChatWithFile: Error storing document in persistence service");
-                    // Continue despite storage error - we can still return the chat response
-                }
-                
-                _logger.LogInformation("Document saved to persistence service: {FileName} with {ChunkCount} chunks", 
-                    documentInfo.FileName, documentInfo.Chunks.Count);
                 
                 return Ok(new { 
                     response = response, 
