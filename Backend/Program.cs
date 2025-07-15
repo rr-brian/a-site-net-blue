@@ -48,22 +48,27 @@ builder.Services.AddTransient<IChatService>(sp =>
         sp.GetService<Azure.AI.OpenAI.OpenAIClient>(),
         sp.GetRequiredService<Backend.Configuration.OpenAIConfiguration>(),
         sp.GetRequiredService<Backend.Services.DocumentChunkingService>(),
-        sp.GetRequiredService<IDocumentContextService>(),
-        sp.GetRequiredService<IChatAnalysisService>(),
-        sp.GetRequiredService<IPromptEngineeringService>(),
+        (Backend.Services.DocumentContextService)sp.GetRequiredService<Backend.Services.IDocumentContextService>(),
+        (Backend.Services.ChatAnalysisService)sp.GetRequiredService<Backend.Services.IChatAnalysisService>(),
+        (Backend.Services.PromptEngineeringService)sp.GetRequiredService<Backend.Services.IPromptEngineeringService>(),
         sp.GetRequiredService<ILogger<Backend.Services.ChatService>>()
     ));
+builder.Services.AddTransient<Backend.Services.IChatService, Backend.Services.ChatService>();
 builder.Services.AddSingleton<Backend.Services.IDocumentPersistenceService, Backend.Services.DocumentPersistenceService>();
 builder.Services.AddSingleton<Backend.Services.SemanticChunker>();
 builder.Services.AddTransient<IDocumentProcessingService, Backend.Services.DocumentProcessingService>();
+builder.Services.AddTransient<Backend.Services.IDocumentProcessingService, Backend.Services.DocumentProcessingService>();
 builder.Services.AddTransient<Backend.Services.DocumentProcessingService>();
 builder.Services.AddSingleton<Backend.Services.DocumentChunkingService>();
 builder.Services.AddSingleton<Backend.Services.DocumentSearchService>();
 
 // Register specialized refactored services
-builder.Services.AddScoped<IDocumentContextService, DocumentContextService>();
-builder.Services.AddScoped<IChatAnalysisService, ChatAnalysisService>();
-builder.Services.AddScoped<IPromptEngineeringService, PromptEngineeringService>();
+builder.Services.AddScoped<Backend.Services.IDocumentContextService, Backend.Services.DocumentContextService>();
+builder.Services.AddScoped<IDocumentContextService, Backend.Services.DocumentContextService>(); // Both registrations for compatibility
+builder.Services.AddScoped<Backend.Services.IChatAnalysisService, Backend.Services.ChatAnalysisService>();
+builder.Services.AddScoped<IChatAnalysisService, Backend.Services.ChatAnalysisService>(); // Both registrations for compatibility
+builder.Services.AddScoped<Backend.Services.IPromptEngineeringService, Backend.Services.PromptEngineeringService>();
+builder.Services.AddScoped<IPromptEngineeringService, Backend.Services.PromptEngineeringService>(); // Both registrations for compatibility
 
 // Register new maintainability services
 builder.Services.AddScoped<IFileValidationService, FileValidationService>();
@@ -89,6 +94,7 @@ builder.Services.AddSingleton<Azure.AI.OpenAI.OpenAIClient>(sp =>
             
             // Use an empty endpoint that will fail gracefully rather than returning null
             return new Azure.AI.OpenAI.OpenAIClient(
+                new Uri("https://dummy-endpoint.openai.azure.com/"),
                 new Azure.AzureKeyCredential("dummy-key-for-null-implementation"));
         }
         
@@ -110,6 +116,7 @@ builder.Services.AddSingleton<Azure.AI.OpenAI.OpenAIClient>(sp =>
             
             // Use an empty endpoint that will fail gracefully rather than returning null
             return new Azure.AI.OpenAI.OpenAIClient(
+                new Uri("https://dummy-endpoint.openai.azure.com/"),
                 new Azure.AzureKeyCredential("dummy-key-for-error-fallback"));
         }
     }
@@ -119,6 +126,7 @@ builder.Services.AddSingleton<Azure.AI.OpenAI.OpenAIClient>(sp =>
         
         // Use an empty endpoint that will fail gracefully rather than returning null
         return new Azure.AI.OpenAI.OpenAIClient(
+            new Uri("https://dummy-endpoint.openai.azure.com/"),
             new Azure.AzureKeyCredential("dummy-key-for-exception-handler"));
     }
 });
