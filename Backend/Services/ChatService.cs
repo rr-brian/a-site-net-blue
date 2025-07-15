@@ -62,10 +62,16 @@ namespace Backend.Services
                     return "I'm sorry, but the AI service is not currently available. Please check your Azure OpenAI configuration and try again later.";
                 }
                 
-                // Get deployment name from configuration
-                var deploymentName = _openAIConfig.DeploymentName;
+                // Add detailed OpenAI connection debugging
+                _logger.LogWarning("DEBUG - OpenAI API Connection Details:");
+                _logger.LogWarning("OpenAI Endpoint: {Endpoint}", _openAIConfig.Endpoint ?? "<null>");
+                _logger.LogWarning("OpenAI API Key Length: {Length}", _openAIConfig.ApiKey?.Length ?? 0);
+                _logger.LogWarning("OpenAI IsConfigured: {IsConfigured}", _openAIConfig.IsConfigured);
                 
-                _logger.LogInformation("Using deployment name: {DeploymentName}", deploymentName);
+                // Get deployment name from configuration
+                var deploymentName = _openAIConfig.DeploymentName ?? "gpt-35-turbo";
+                
+                _logger.LogWarning("Using deployment name: {DeploymentName}", deploymentName);
                 _logger.LogInformation("Processing chat request with message: {MessageLength} chars, Document: {HasDocument}", 
                     message?.Length ?? 0, documentInfo != null);
                 

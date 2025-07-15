@@ -28,8 +28,15 @@ namespace Backend.Configuration
                 // First try environment variables (highest priority for Azure deployment)
                 Endpoint = Environment.GetEnvironmentVariable("OPENAI_ENDPOINT");
                 ApiKey = Environment.GetEnvironmentVariable("OPEN_API_KEY");
-                DeploymentName = Environment.GetEnvironmentVariable("AZURE_OPENAI_DEPLOYMENT"); // Keep this as fallback
+                DeploymentName = Environment.GetEnvironmentVariable("AZURE_OPENAI_DEPLOYMENT") ?? "gpt-35-turbo"; // Default deployment name
                 SystemPrompt = Environment.GetEnvironmentVariable("AZURE_OPENAI_SYSTEM_PROMPT"); // Keep this as fallback
+                
+                // Add detailed debug logging
+                _logger.LogWarning("DEBUG - OpenAI Configuration - Environment Variables:");
+                _logger.LogWarning("OPENAI_ENDPOINT value: {Endpoint}", Endpoint ?? "<null>");
+                _logger.LogWarning("OPEN_API_KEY exists: {HasKey}", !string.IsNullOrEmpty(ApiKey));
+                _logger.LogWarning("AZURE_OPENAI_DEPLOYMENT value: {DeploymentName}", DeploymentName ?? "<null>");
+                _logger.LogWarning("AZURE_OPENAI_SYSTEM_PROMPT exists: {HasPrompt}", !string.IsNullOrEmpty(SystemPrompt));
                 
                 _logger.LogInformation("Checking environment variables: OPENAI_ENDPOINT={HasEndpoint}, OPEN_API_KEY={HasApiKey}", 
                     !string.IsNullOrEmpty(Endpoint),
