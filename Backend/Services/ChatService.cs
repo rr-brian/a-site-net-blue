@@ -6,20 +6,21 @@ using Backend.Models;
 using Azure;
 using Azure.AI.OpenAI;
 using Backend.Configuration;
+using Backend.Services.Interfaces;
 
 namespace Backend.Services
 {
     /// <summary>
     /// Main service for processing chat requests with or without document context
     /// </summary>
-    public class ChatService : IChatService
+    public class ChatService : Interfaces.IChatService
     {
         private readonly OpenAIClient _openAIClient;
         private readonly OpenAIConfiguration _openAIConfig;
         private readonly DocumentChunkingService _documentChunkingService;
-        private readonly IDocumentContextService _documentContextService;
-        private readonly IChatAnalysisService _chatAnalysisService;
-        private readonly IPromptEngineeringService _promptEngineeringService;
+        private readonly Interfaces.IDocumentContextService _documentContextService;
+        private readonly Interfaces.IChatAnalysisService _chatAnalysisService;
+        private readonly Interfaces.IPromptEngineeringService _promptEngineeringService;
         private readonly ILogger<ChatService> _logger;
         
         // Default retry settings for API call failures
@@ -30,9 +31,9 @@ namespace Backend.Services
             OpenAIClient openAIClient,
             OpenAIConfiguration openAIConfig,
             DocumentChunkingService documentChunkingService,
-            IDocumentContextService documentContextService,
-            IChatAnalysisService chatAnalysisService,
-            IPromptEngineeringService promptEngineeringService,
+            Interfaces.IDocumentContextService documentContextService,
+            Interfaces.IChatAnalysisService chatAnalysisService,
+            Interfaces.IPromptEngineeringService promptEngineeringService,
             ILogger<ChatService> logger)
         {
             _openAIClient = openAIClient;

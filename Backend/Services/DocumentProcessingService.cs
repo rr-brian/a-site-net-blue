@@ -11,10 +11,11 @@ using System;
 using System.Linq;
 using System.Collections.Generic;
 using Microsoft.Extensions.Logging;
+using Backend.Services.Interfaces;
 
 namespace Backend.Services
 {
-    public class DocumentProcessingService : IDocumentProcessingService
+    public class DocumentProcessingService : Interfaces.IDocumentProcessingService
     {
         private readonly ILogger<DocumentProcessingService> _logger;
 

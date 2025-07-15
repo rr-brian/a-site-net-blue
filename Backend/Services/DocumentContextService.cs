@@ -5,13 +5,14 @@ using System.Text;
 using System.Text.RegularExpressions;
 using Microsoft.Extensions.Logging;
 using Backend.Models;
+using Backend.Services.Interfaces;
 
 namespace Backend.Services
 {
     /// <summary>
     /// Service responsible for preparing document context for LLM prompts
     /// </summary>
-    public class DocumentContextService : IDocumentContextService
+    public class DocumentContextService : Interfaces.IDocumentContextService
     {
         private readonly ILogger<DocumentContextService> _logger;
         

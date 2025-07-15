@@ -3,13 +3,14 @@ using System.Text;
 using Microsoft.Extensions.Logging;
 using Backend.Models;
 using Backend.Configuration;
+using Backend.Services.Interfaces;
 
 namespace Backend.Services
 {
     /// <summary>
     /// Service for constructing effective prompts for LLM interactions
     /// </summary>
-    public class PromptEngineeringService : IPromptEngineeringService
+    public class PromptEngineeringService : Interfaces.IPromptEngineeringService
     {
         private readonly ILogger<PromptEngineeringService> _logger;
         private readonly OpenAIConfiguration _openAIConfig;

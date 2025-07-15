@@ -3,13 +3,14 @@ using System.Collections.Generic;
 using System.Text.RegularExpressions;
 using System.Linq;
 using Microsoft.Extensions.Logging;
+using Backend.Services.Interfaces;
 
 namespace Backend.Services
 {
     /// <summary>
     /// Service for analyzing user chat messages and extracting relevant information
     /// </summary>
-    public class ChatAnalysisService : IChatAnalysisService
+    public class ChatAnalysisService : Interfaces.IChatAnalysisService
     {
         private readonly ILogger<ChatAnalysisService> _logger;
         
