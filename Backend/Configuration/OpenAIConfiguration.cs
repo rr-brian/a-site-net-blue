@@ -26,12 +26,12 @@ namespace Backend.Configuration
             try
             {
                 // First try environment variables (highest priority for Azure deployment)
-                Endpoint = Environment.GetEnvironmentVariable("AZURE_OPENAI_ENDPOINT");
-                ApiKey = Environment.GetEnvironmentVariable("AZURE_OPENAI_API_KEY");
-                DeploymentName = Environment.GetEnvironmentVariable("AZURE_OPENAI_DEPLOYMENT");
-                SystemPrompt = Environment.GetEnvironmentVariable("AZURE_OPENAI_SYSTEM_PROMPT");
+                Endpoint = Environment.GetEnvironmentVariable("OPENAI_ENDPOINT");
+                ApiKey = Environment.GetEnvironmentVariable("OPEN_API_KEY");
+                DeploymentName = Environment.GetEnvironmentVariable("AZURE_OPENAI_DEPLOYMENT"); // Keep this as fallback
+                SystemPrompt = Environment.GetEnvironmentVariable("AZURE_OPENAI_SYSTEM_PROMPT"); // Keep this as fallback
                 
-                _logger.LogInformation("Checking environment variables: AZURE_OPENAI_ENDPOINT={HasEndpoint}, AZURE_OPENAI_API_KEY={HasApiKey}", 
+                _logger.LogInformation("Checking environment variables: OPENAI_ENDPOINT={HasEndpoint}, OPEN_API_KEY={HasApiKey}", 
                     !string.IsNullOrEmpty(Endpoint),
                     !string.IsNullOrEmpty(ApiKey));
                 
