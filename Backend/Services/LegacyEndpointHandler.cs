@@ -183,19 +183,9 @@ namespace Backend.Services
                     {
                         Response = responseText,
                         DocumentInContext = true,
-                        DocumentInfo = new DocumentInfo
-                        {
-                            FileName = documentInfo.FileName,
-                            // Include a metadata chunk with count information
-                            ChunkMetadata = new List<ChunkMetadata>
-                            {
-                                new ChunkMetadata
-                                {
-                                    ChunkIndex = 0,
-                                    KeyEntities = new List<string> { "ChunkCount" },
-                                    RelevanceScore = documentInfo.Chunks?.Count ?? 0
-                                }
-                            }
+                        DocumentInfo = new {
+                            fileName = documentInfo.FileName,
+                            chunkCount = documentInfo.Chunks?.Count ?? 0
                         }
                     };
                     
