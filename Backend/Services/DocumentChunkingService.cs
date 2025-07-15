@@ -3,10 +3,11 @@ using System.Collections.Generic;
 using System.Text;
 using System.Text.RegularExpressions;
 using Microsoft.Extensions.Logging;
+using Backend.Services.Interfaces;
 
 namespace Backend.Services
 {
-    public class DocumentChunkingService
+    public class DocumentChunkingService : IDocumentChunkingService
     {
         private readonly ILogger<DocumentChunkingService> _logger;
         

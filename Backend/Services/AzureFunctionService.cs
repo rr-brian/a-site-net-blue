@@ -5,10 +5,11 @@ using System.Net.Http;
 using System.Text;
 using System.Text.Json;
 using System.Threading.Tasks;
+using Backend.Services.Interfaces;
 
 namespace Backend.Services
 {
-    public class AzureFunctionService
+    public class AzureFunctionService : IAzureFunctionService
     {
         private readonly IConfiguration _configuration;
         private readonly ILogger<AzureFunctionService> _logger;

@@ -1,13 +1,14 @@
 using System.Text.RegularExpressions;
 using Backend.Models;
 using System.Text;
+using Backend.Services.Interfaces;
 
 namespace Backend.Services
 {
     /// <summary>
     /// SemanticChunker implements LangChain-inspired chunking strategies for improved document processing
     /// </summary>
-    public class SemanticChunker
+    public class SemanticChunker : ISemanticChunker
     {
         private readonly ILogger<SemanticChunker> _logger;
         

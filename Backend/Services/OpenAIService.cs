@@ -5,10 +5,11 @@ using Microsoft.Extensions.Logging;
 using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
+using Backend.Services.Interfaces;
 
 namespace Backend.Services
 {
-    public class OpenAIService
+    public class OpenAIService : IOpenAIService
     {
         private readonly IConfiguration _configuration;
         private readonly ILogger<OpenAIService> _logger;

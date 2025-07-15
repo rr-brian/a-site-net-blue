@@ -4,10 +4,11 @@ using System.Linq;
 using System.Text.RegularExpressions;
 using Microsoft.Extensions.Logging;
 using Backend.Models;
+using Backend.Services.Interfaces;
 
 namespace Backend.Services
 {
-    public class DocumentSearchService
+    public class DocumentSearchService : IDocumentSearchService
     {
         private readonly ILogger<DocumentSearchService> _logger;
 
