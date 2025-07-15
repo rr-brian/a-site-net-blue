@@ -111,12 +111,18 @@ async function callChatWithFileAPI(message, file) {
     
     console.log(`Sending file upload with clientSessionId: ${clientSessionId}`);
     
+    // Log detailed information about the request we're about to make
+    console.log(`Uploading file: Name=${file.name}, Type=${file.type}, Size=${file.size} bytes`);
+    console.log(`Message length: ${message.length} characters`);
+    console.log(`Client session ID: ${clientSessionId}`);
+    
     // Try the new endpoint first (preferred)
     try {
         console.log('Attempting to use new endpoint: /api/document-chat/with-file');
         const response = await fetch('/api/document-chat/with-file', {
             method: 'POST',
-            body: formData
+            body: formData,
+            credentials: 'same-origin' // Ensure cookies are sent
         });
         
         if (response.ok) {
@@ -125,6 +131,13 @@ async function callChatWithFileAPI(message, file) {
             return handleDocumentResponse(data, file);
         } else {
             console.warn('New endpoint failed with status:', response.status);
+            try {
+                // Try to get detailed error information
+                const errorText = await response.text();
+                console.error('Error details from new endpoint:', errorText);
+            } catch (parseError) {
+                console.error('Could not parse error response from new endpoint');
+            }
             // Let it fall through to the fallback
         }
     } catch (error) {
@@ -135,14 +148,30 @@ async function callChatWithFileAPI(message, file) {
     // Fallback to old endpoint if new one failed
     try {
         console.log('Falling back to legacy endpoint: /api/chat/with-file');
+        
+        // Create a fresh FormData object for the legacy endpoint
+        const legacyFormData = new FormData();
+        legacyFormData.append('file', file);
+        legacyFormData.append('message', message);
+        legacyFormData.append('clientSessionId', clientSessionId);
+        
         const legacyResponse = await fetch('/api/chat/with-file', {
             method: 'POST',
-            body: formData
+            body: legacyFormData,
+            credentials: 'same-origin' // Ensure cookies are sent
         });
         
         if (!legacyResponse.ok) {
             console.error('Both endpoints failed. Legacy status:', legacyResponse.status);
-            throw new Error('Error processing file with message');
+            
+            try {
+                // Try to get detailed error information
+                const errorText = await legacyResponse.text();
+                console.error('Error details from legacy endpoint:', errorText);
+                throw new Error(`Error processing file: ${errorText}`);
+            } catch (parseError) {
+                throw new Error('Error processing file - could not get detailed error message');
+            }
         }
         
         console.log('Successfully used legacy endpoint');

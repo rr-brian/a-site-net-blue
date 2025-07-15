@@ -211,36 +211,82 @@ namespace Backend.Controllers
                     message?.Length ?? 0, 
                     clientSessionId ?? "<not provided>");
                 
-                // Log request headers for debugging
-                foreach (var header in HttpContext.Request.Headers)
+                // Log form data for debugging
+                _logger.LogInformation("Form data keys: {Keys}", string.Join(", ", HttpContext.Request.Form.Keys));
+                
+                // Log file details if present
+                if (file != null)
                 {
-                    _logger.LogDebug("Request Header: {Key}={Value}", header.Key, header.Value);
+                    _logger.LogInformation("File details - Name: {Name}, ContentType: {ContentType}, Length: {Length}",
+                        file.FileName, file.ContentType, file.Length);
+                }
+                else
+                {
+                    _logger.LogWarning("File is null - checking for file in Request.Form.Files");
+                    if (HttpContext.Request.Form.Files.Count > 0)
+                    {
+                        var formFile = HttpContext.Request.Form.Files[0];
+                        _logger.LogInformation("Found file in Form.Files: {Name}, ContentType: {ContentType}, Length: {Length}",
+                            formFile.FileName, formFile.ContentType, formFile.Length);
+                        file = formFile; // Use the file from form files
+                    }
+                    else
+                    {
+                        _logger.LogError("No file found in request");
+                        return BadRequest("No file uploaded");
+                    }
                 }
 
                 // Check for missing parameters
-                if (file == null || file.Length == 0)
+                if (file.Length == 0)
                 {
-                    _logger.LogError("Legacy endpoint missing file or file is empty");
-                    return BadRequest("No file uploaded or file is empty");
+                    _logger.LogError("Legacy endpoint file is empty: {FileName}", file.FileName);
+                    return BadRequest($"Uploaded file '{file.FileName}' is empty");
                 }
                 
                 if (string.IsNullOrEmpty(message))
                 {
                     _logger.LogError("Legacy endpoint missing message");
-                    return BadRequest("No message provided");
+                    // Check if message might be in another form field
+                    foreach (var key in HttpContext.Request.Form.Keys)
+                    {
+                        if (key.ToLower().Contains("message") && !string.IsNullOrEmpty(HttpContext.Request.Form[key]))
+                        {
+                            message = HttpContext.Request.Form[key];
+                            _logger.LogWarning("Found message in alternate form field {Field}: {Message}", key, message);
+                            break;
+                        }
+                    }
+                    
+                    if (string.IsNullOrEmpty(message))
+                    {
+                        return BadRequest("No message provided");
+                    }
                 }
                 
-                // File validation
+                // File validation - more lenient to help with debugging
                 var extension = Path.GetExtension(file.FileName).ToLowerInvariant();
+                _logger.LogInformation("File extension: {Extension}", extension);
                 if (extension != ".pdf" && extension != ".docx" && extension != ".xlsx")
                 {
-                    _logger.LogError("Legacy endpoint received unsupported file format: {Extension}", extension);
-                    return BadRequest("Unsupported file format. Please upload a PDF, Word, or Excel file.");
+                    _logger.LogWarning("Legacy endpoint received potentially unsupported file format: {Extension}", extension);
+                    // Continue anyway for debugging purposes
                 }
                 
-                // Instead of trying to copy the file and forwarding, process it directly in this controller
-                // This eliminates potential issues with file transfer between controllers
-                _logger.LogInformation("Handling legacy endpoint request directly: File={FileName}", file.FileName);
+                // Try to access file contents to verify it's readable
+                try
+                {
+                    using var stream = file.OpenReadStream();
+                    var buffer = new byte[Math.Min(1024, file.Length)];
+                    await stream.ReadAsync(buffer, 0, buffer.Length);
+                    stream.Position = 0; // Reset position after test read
+                    _logger.LogInformation("Successfully verified file is readable");
+                }
+                catch (Exception readEx)
+                {
+                    _logger.LogError(readEx, "Failed to read file contents");
+                    return BadRequest($"File cannot be read: {readEx.Message}");
+                }
 
                 // Get the DocumentChatController and its services via DI
                 var documentChatController = (DocumentChatController)HttpContext.RequestServices
@@ -260,19 +306,20 @@ namespace Backend.Controllers
                 
                 try
                 {
-                    // Reset the stream position just to be safe
-                    var stream = file.OpenReadStream();
-                    stream.Position = 0;
+                    _logger.LogInformation("Forwarding to DocumentChatController.ChatWithFile with: File={FileName}, Message={MessageLength}, ClientSessionId={SessionId}", 
+                        file.FileName, message.Length, clientSessionId ?? "<not provided>");
                     
-                    _logger.LogInformation("Forwarding to DocumentChatController with clientSessionId: {ClientSessionId}", 
-                        clientSessionId ?? "<not provided>");
+                    var result = await documentChatController.ChatWithFile(file, message, clientSessionId);
                     
-                    return await documentChatController.ChatWithFile(file, message, clientSessionId);
+                    // Log the result type
+                    _logger.LogInformation("DocumentChatController.ChatWithFile returned result of type: {ResultType}", result.GetType().Name);
+                    
+                    return result;
                 }
                 catch (Exception ex)
                 {
                     _logger.LogError(ex, "Error calling DocumentChatController.ChatWithFile");
-                    return StatusCode(500, new { error = $"Error processing file: {ex.Message}" });
+                    return StatusCode(500, new { error = $"Error processing file: {ex.Message}", details = ex.StackTrace });
                 }
             }
             catch (Exception ex)
