@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
 using Backend.Models;
 using Backend.Services;
+using Backend.Services.Interfaces;
 using System.IO;
 
 namespace Backend.Controllers
@@ -18,12 +19,12 @@ namespace Backend.Controllers
     {
         private readonly ILogger<ChatController> _logger;
         private readonly ChatService _chatService;
-        private readonly IDocumentPersistenceService _documentPersistenceService;
+        private readonly Backend.Services.Interfaces.IDocumentPersistenceService _documentPersistenceService;
         
         public ChatController(
             ILogger<ChatController> logger,
             ChatService chatService,
-            IDocumentPersistenceService documentPersistenceService)
+            Backend.Services.Interfaces.IDocumentPersistenceService documentPersistenceService)
         {
             _logger = logger;
             _chatService = chatService;
