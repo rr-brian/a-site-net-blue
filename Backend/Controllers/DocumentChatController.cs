@@ -100,12 +100,19 @@ namespace Backend.Controllers
                 // Store document in our persistence service for future queries
                 string sessionId = HttpContext.Session.Id;
                 
-                // Check if client provided a session ID from cookie/storage
-                string clientSessionId = null;
-                if (HttpContext.Request.Form.ContainsKey("clientSessionId"))
+                // Check if client provided a session ID from method parameter first
+                string clientSessionIdToUse = clientSessionId;
+                
+                // If not provided as parameter, check form data as fallback
+                if (string.IsNullOrEmpty(clientSessionIdToUse) && HttpContext.Request.Form.ContainsKey("clientSessionId"))
                 {
-                    clientSessionId = HttpContext.Request.Form["clientSessionId"];
-                    _logger.LogInformation("Client session ID provided with upload: {ClientSessionId}", clientSessionId);
+                    clientSessionIdToUse = HttpContext.Request.Form["clientSessionId"];
+                    _logger.LogInformation("Client session ID from form data: {ClientSessionId}", clientSessionIdToUse);
+                }
+                
+                if (!string.IsNullOrEmpty(clientSessionIdToUse))
+                {
+                    _logger.LogInformation("Using client session ID: {ClientSessionId}", clientSessionIdToUse);
                 }
                 
                 // Store using server session ID
@@ -113,13 +120,13 @@ namespace Backend.Controllers
                 _logger.LogInformation("Document saved using server session ID: {SessionId}", sessionId);
                 
                 // Also store using client session ID if available
-                if (!string.IsNullOrEmpty(clientSessionId))
+                if (!string.IsNullOrEmpty(clientSessionIdToUse))
                 {
-                    _documentPersistenceService.StoreDocument(clientSessionId, documentInfo);
-                    _logger.LogInformation("Document also saved using client session ID: {ClientSessionId}", clientSessionId);
+                    _documentPersistenceService.StoreDocument(clientSessionIdToUse, documentInfo);
+                    _logger.LogInformation("Document also saved using client session ID: {ClientSessionId}", clientSessionIdToUse);
                     
                     // Store client session ID in session for future reference
-                    HttpContext.Session.SetString("ClientSessionId", clientSessionId);
+                    HttpContext.Session.SetString("ClientSessionId", clientSessionIdToUse);
                 }
                 else
                 {
@@ -160,11 +167,11 @@ namespace Backend.Controllers
                 _documentPersistenceService.ClearDocument(sessionId);
                 
                 // Also try to clear with client session ID if it exists
-                string clientSessionId = HttpContext.Session.GetString("ClientSessionId");
-                if (!string.IsNullOrEmpty(clientSessionId))
+                string clientSessionIdToUse = HttpContext.Session.GetString("ClientSessionId");
+                if (!string.IsNullOrEmpty(clientSessionIdToUse))
                 {
-                    _logger.LogInformation("Also clearing document context for client session ID: {ClientSessionId}", clientSessionId);
-                    _documentPersistenceService.ClearDocument(clientSessionId);
+                    _logger.LogInformation("Also clearing document context for client session ID: {ClientSessionId}", clientSessionIdToUse);
+                    _documentPersistenceService.ClearDocument(clientSessionIdToUse);
                 }
                 
                 return Ok(new { success = true, message = "Document context cleared" });
