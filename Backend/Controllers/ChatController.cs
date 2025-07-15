@@ -198,9 +198,26 @@ namespace Backend.Controllers
         /// Redirects requests to the DocumentChatController
         /// </summary>
         [HttpPost("with-file")]
+        [RequestSizeLimit(52428800)] // 50MB limit explicitly set for this endpoint
+        [RequestFormLimits(MultipartBodyLengthLimit = 52428800)] // 50MB for multipart
         public async Task<IActionResult> ChatWithFileFallback(IFormFile file, [FromForm] string message, [FromForm] string clientSessionId)
         {
-            _logger.LogWarning("Legacy endpoint /api/chat/with-file called. Redirecting to /api/document-chat/with-file");
+            _logger.LogWarning("Legacy endpoint /api/chat/with-file called. Diagnosing request issues");
+            
+            // Add detailed headers and request info to logs
+            _logger.LogInformation("Content-Type: {ContentType}, Content-Length: {ContentLength}",
+                HttpContext.Request.ContentType,
+                HttpContext.Request.ContentLength);
+            
+            // Log user agent and other important headers
+            _logger.LogInformation("User-Agent: {UserAgent}", 
+                HttpContext.Request.Headers.ContainsKey("User-Agent") ? 
+                    HttpContext.Request.Headers["User-Agent"].ToString() : "<not provided>");
+                    
+            _logger.LogInformation("Request details - IsHttps: {IsHttps}, Path: {Path}, QueryString: {QueryString}",
+                HttpContext.Request.IsHttps,
+                HttpContext.Request.Path,
+                HttpContext.Request.QueryString);
             
             try
             {
@@ -217,12 +234,107 @@ namespace Backend.Controllers
                 // Log file details if present
                 if (file != null)
                 {
-                    _logger.LogInformation("File details - Name: {Name}, ContentType: {ContentType}, Length: {Length}",
-                        file.FileName, file.ContentType, file.Length);
+                    try
+                    {
+                        // Check if the request contains the expected fields
+                        var formCollection = await HttpContext.Request.ReadFormAsync();
+                        _logger.LogInformation("Form data keys: {Keys}", string.Join(", ", formCollection.Keys));
+                        
+                        // Log all form values (except files) for debugging
+                        foreach (var key in formCollection.Keys.Where(k => !k.Equals("file", StringComparison.OrdinalIgnoreCase)))
+                        {
+                            _logger.LogInformation("Form key '{Key}' has value: {Value}", key, formCollection[key].ToString());
+                        }
+                        
+                        // Log file details
+                        _logger.LogInformation("Form file count: {Count}", formCollection.Files.Count);
+                        foreach (var formFile in formCollection.Files)
+                        {
+                            _logger.LogInformation("Form file: Name={Name}, FileName={FileName}, ContentType={ContentType}, Length={Length}",
+                                formFile.Name, formFile.FileName, formFile.ContentType, formFile.Length);
+                        }
+                        
+                        // Log detailed info about the provided file parameter
+                        _logger.LogInformation("Received file parameter: {IsNull}, Name: {Name}", 
+                            file == null ? "null" : "not null",
+                            file?.Name ?? "<none>");
+                            
+                        _logger.LogInformation("Received file: {FileName}, Size: {Size}, Type: {ContentType}", 
+                            file?.FileName ?? "<none>", 
+                            file?.Length ?? 0, 
+                            file?.ContentType ?? "<none>");
+                        
+                        // Check file parameter
+                        if (file == null)
+                        {
+                            _logger.LogWarning("File parameter is null - checking if form has any files");
+                            
+                            // If the file parameter is null but there are files in the form, try using the first one
+                            if (formCollection.Files.Count > 0)
+                            {
+                                file = formCollection.Files[0];
+                                _logger.LogInformation("Using first file from form collection instead: {FileName}", file.FileName);
+                            }
+                            else
+                            {
+                                _logger.LogError("No file found in request");
+                                return BadRequest("File is required but not found in request");
+                            }
+                        }
+                        
+                        if (file.Length == 0)
+                        {
+                            _logger.LogWarning("File is empty (zero length)");
+                            return BadRequest("File is empty");
+                        }
+
+                        // Check if we can actually read the file
+                        try 
+                        {
+                            using var stream = file.OpenReadStream();
+                            var buffer = new byte[Math.Min(file.Length, 1024)]; // Just read the first 1KB to verify
+                            var bytesRead = await stream.ReadAsync(buffer, 0, buffer.Length);
+                            _logger.LogInformation("Successfully read {BytesRead} bytes from file stream", bytesRead);
+                        }
+                        catch (Exception ex)
+                        {
+                            _logger.LogError(ex, "Failed to read from file stream");
+                            return BadRequest($"Unable to read file: {ex.Message}");
+                        }
+
+                        // Check message parameter
+                        if (string.IsNullOrWhiteSpace(message))
+                        {
+                            _logger.LogWarning("Message is empty or null");
+                            // Try to get message from form data directly if the parameter binding failed
+                            if (formCollection.TryGetValue("message", out var formMessage) && 
+                                !string.IsNullOrWhiteSpace(formMessage))
+                            {
+                                message = formMessage.ToString();
+                                _logger.LogInformation("Retrieved message from form data: {Length} chars", message.Length);
+                            }
+                            else
+                            {
+                                return BadRequest("Message is required");
+                            }
+                        }
+                        
+                        _logger.LogInformation("Message length: {Length}, ClientSessionId: {ClientSessionId}", 
+                            message?.Length ?? 0, 
+                            clientSessionId ?? "<none>");
+
+                        _logger.LogInformation("Forwarding request to DocumentChatController");
+                        return await _documentChatController.ChatWithFile(file, message, clientSessionId);
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError(ex, "Error in legacy chat with file endpoint: {Message}\nStack: {StackTrace}", ex.Message, ex.StackTrace);
+                        return StatusCode(500, $"Error processing file: {ex.Message}\nStack: {ex.StackTrace}");
+                    }
                 }
                 else
                 {
-                    _logger.LogWarning("File is null - checking for file in Request.Form.Files");
+                    _logger.LogError("File is null - checking for file in Request.Form.Files");
                     if (HttpContext.Request.Form.Files.Count > 0)
                     {
                         var formFile = HttpContext.Request.Form.Files[0];
@@ -276,16 +388,21 @@ namespace Backend.Controllers
                 // Try to access file contents to verify it's readable
                 try
                 {
-                    using var stream = file.OpenReadStream();
-                    var buffer = new byte[Math.Min(1024, file.Length)];
-                    await stream.ReadAsync(buffer, 0, buffer.Length);
-                    stream.Position = 0; // Reset position after test read
+                    using (var stream = file.OpenReadStream())
+                    {
+                        var buffer = new byte[Math.Min(1024, file.Length)];
+                        await stream.ReadAsync(buffer, 0, buffer.Length);
+                    }
                     _logger.LogInformation("Successfully verified file is readable");
                 }
                 catch (Exception readEx)
                 {
-                    _logger.LogError(readEx, "Failed to read file contents");
-                    return BadRequest($"File cannot be read: {readEx.Message}");
+                    _logger.LogError(readEx, "Failed to read file contents: {Message}, Stack: {Stack}", 
+                        readEx.Message, readEx.StackTrace);
+                        
+                    // Don't return BadRequest here - continue with the request even if verification fails
+                    // This helps diagnose if the issue is in verification vs actual processing
+                    _logger.LogWarning("Continuing despite file read verification failure");
                 }
 
                 // Get the DocumentChatController and its services via DI

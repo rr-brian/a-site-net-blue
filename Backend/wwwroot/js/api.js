@@ -119,10 +119,12 @@ async function callChatWithFileAPI(message, file) {
     // Try the new endpoint first (preferred)
     try {
         console.log('Attempting to use new endpoint: /api/document-chat/with-file');
+        // Don't set Content-Type header explicitly - browser will set it correctly with boundary parameter for multipart/form-data
         const response = await fetch('/api/document-chat/with-file', {
             method: 'POST',
             body: formData,
-            credentials: 'same-origin' // Ensure cookies are sent
+            credentials: 'same-origin', // Ensure cookies are sent
+            cache: 'no-cache' // Prevent caching issues
         });
         
         if (response.ok) {
@@ -158,8 +160,11 @@ async function callChatWithFileAPI(message, file) {
         const legacyResponse = await fetch('/api/chat/with-file', {
             method: 'POST',
             body: legacyFormData,
-            credentials: 'same-origin' // Ensure cookies are sent
+            credentials: 'same-origin', // Ensure cookies are sent
+            cache: 'no-cache' // Prevent caching issues
         });
+        
+        console.log('Legacy endpoint response status:', legacyResponse.status);
         
         if (!legacyResponse.ok) {
             console.error('Both endpoints failed. Legacy status:', legacyResponse.status);
