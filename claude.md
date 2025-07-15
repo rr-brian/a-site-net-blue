@@ -165,3 +165,23 @@ dotnet run --urls "http://localhost:5239"
 3. Optimize Azure Function integration
 4. Prepare for deployment to staging environment
 5. Conduct user acceptance testing
+
+## PowerShell Command Syntax Notes
+
+### Important Command Differences
+
+1. **Command Chaining**: 
+   - Unix/Bash uses: `command1 && command2`
+   - PowerShell uses: `command1; command2` or `command1; if ($?) { command2 }`
+
+2. **Directory Navigation**: 
+   - Use `cd` or `Set-Location` with separate commands
+   - Example: `cd Backend; dotnet build` instead of `cd Backend && dotnet build`
+
+3. **Error Handling**:
+   - PowerShell uses `$?` or `$LASTEXITCODE` to check previous command success
+   - Use `if ($LASTEXITCODE -eq 0) { ... }` for conditional execution
+
+## Document Upload Debugging
+
+We're investigating 400 Bad Request errors when uploading documents to both the new endpoint `/api/document-chat/with-file` and the legacy fallback endpoint `/api/chat/with-file`. Enhanced logging has been added to help diagnose these issues.

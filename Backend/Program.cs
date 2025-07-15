@@ -1,7 +1,22 @@
+using Microsoft.AspNetCore.Server.IIS;
+
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
-builder.Services.AddControllers();
+builder.Services.AddControllers(options => {
+    // Increase the max model binding size limit for file uploads
+    options.MaxModelBindingCollectionSize = 10000;
+});
+
+// Configure request size limits for file uploads (matching web.config)
+builder.Services.Configure<IISServerOptions>(options => {
+    options.MaxRequestBodySize = 52428800; // 50 MB in bytes
+});
+
+// Configure Kestrel server limits
+builder.WebHost.ConfigureKestrel(options => {
+    options.Limits.MaxRequestBodySize = 52428800; // 50 MB in bytes
+});
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
