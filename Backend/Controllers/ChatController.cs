@@ -238,7 +238,8 @@ namespace Backend.Controllers
                 {
                     // Reset the stream position
                     file.OpenReadStream().Position = 0;
-                    return await documentChatController.ChatWithFile(file, message);
+                    _logger.LogInformation("Forwarding to DocumentChatController with clientSessionId: {ClientSessionId}", clientSessionId);
+                    return await documentChatController.ChatWithFile(file, message, clientSessionId);
                 }
                 else
                 {

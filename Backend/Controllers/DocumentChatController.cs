@@ -41,7 +41,7 @@ namespace Backend.Controllers
         }
 
         [HttpPost("with-file")]
-        public async Task<IActionResult> ChatWithFile(IFormFile file, [FromForm] string message)
+        public async Task<IActionResult> ChatWithFile(IFormFile file, [FromForm] string message, [FromForm] string clientSessionId = null)
         {
             if (file == null || file.Length == 0)
             {
