@@ -2,6 +2,7 @@ using System.Collections.Concurrent;
 using System.Text.Json;
 using System.Threading.Tasks;
 using Backend.Models;
+using Backend.Services.Interfaces;
 
 namespace Backend.Services
 {
@@ -9,7 +10,7 @@ namespace Backend.Services
     /// Service for persisting document information between requests
     /// Uses a static in-memory store and an optional file-based backup
     /// </summary>
-    public class DocumentPersistenceService : IDocumentPersistenceService
+    public class DocumentPersistenceService : Interfaces.IDocumentPersistenceService
     {
         // Static store to ensure it persists across application restarts
         private static readonly ConcurrentDictionary<string, DocumentInfo> _documentStore = new();

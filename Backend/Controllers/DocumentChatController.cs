@@ -21,30 +21,30 @@ namespace Backend.Controllers
     {
         private readonly ILogger<DocumentChatController> _logger;
         private readonly IConfiguration _configuration;
-        private readonly IChatService _chatService;
-        private readonly IDocumentProcessingService _documentProcessingService;
+        private readonly Backend.Services.Interfaces.IChatService _chatService;
+        private readonly Backend.Services.Interfaces.IDocumentProcessingService _documentProcessingService;
         private readonly DocumentChunkingService _documentChunkingService;
         private readonly SemanticChunker _semanticChunker;
-        private readonly IDocumentPersistenceService _documentPersistenceService;
-        private readonly IFileValidationService _fileValidationService;
-        private readonly IRequestDiagnosticsService _requestDiagnosticsService;
-        private readonly IDocumentContextService _documentContextService;
-        private readonly IChatAnalysisService _chatAnalysisService;
-        private readonly IPromptEngineeringService _promptEngineeringService;
+        private readonly Backend.Services.Interfaces.IDocumentPersistenceService _documentPersistenceService;
+        private readonly Backend.Services.Interfaces.IFileValidationService _fileValidationService;
+        private readonly Backend.Services.Interfaces.IRequestDiagnosticsService _requestDiagnosticsService;
+        private readonly Backend.Services.Interfaces.IDocumentContextService _documentContextService;
+        private readonly Backend.Services.Interfaces.IChatAnalysisService _chatAnalysisService;
+        private readonly Backend.Services.Interfaces.IPromptEngineeringService _promptEngineeringService;
         
         public DocumentChatController(
             ILogger<DocumentChatController> logger,
             IConfiguration configuration,
-            IChatService chatService,
-            IDocumentProcessingService documentService,
+            Backend.Services.Interfaces.IChatService chatService,
+            Backend.Services.Interfaces.IDocumentProcessingService documentService,
             DocumentChunkingService documentChunkingService,
             SemanticChunker semanticChunker,
-            IDocumentPersistenceService documentPersistenceService,
-            IFileValidationService fileValidationService,
-            IRequestDiagnosticsService requestDiagnosticsService,
-            IDocumentContextService documentContextService,
-            IChatAnalysisService chatAnalysisService,
-            IPromptEngineeringService promptEngineeringService)
+            Backend.Services.Interfaces.IDocumentPersistenceService documentPersistenceService,
+            Backend.Services.Interfaces.IFileValidationService fileValidationService,
+            Backend.Services.Interfaces.IRequestDiagnosticsService requestDiagnosticsService,
+            Backend.Services.Interfaces.IDocumentContextService documentContextService,
+            Backend.Services.Interfaces.IChatAnalysisService chatAnalysisService,
+            Backend.Services.Interfaces.IPromptEngineeringService promptEngineeringService)
         {
             _logger = logger;
             _configuration = configuration;

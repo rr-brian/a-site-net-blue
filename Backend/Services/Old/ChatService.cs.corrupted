@@ -88,17 +88,6 @@ namespace Backend.Services
                         documentInfo.FileName,
                         documentInfo.Chunks?.Count ?? 0,
                         documentInfo.ChunkMetadata?.Count ?? 0);
-                        
-                    if (documentInfo.Chunks == null || documentInfo.Chunks.Count == 0)
-                    {
-                        _logger.LogError("CRITICAL ERROR: Document info exists but has NO CHUNKS - this will result in empty context");
-                        
-                        // This is critical - if we somehow have a DocumentInfo but it has no chunks, 
-                        // the user will see the document context indicator but the AI won't have access to the document
-                        _logger.LogError("Document info has no chunks - this is likely a serialization or persistence issue");
-                    }
-                    else
-                    {
                         _logger.LogInformation("Document chunk sample: {Sample}", 
                             documentInfo.Chunks[0].Length > 50 
                                 ? documentInfo.Chunks[0].Substring(0, 50) + "..." 
@@ -121,9 +110,6 @@ namespace Backend.Services
                                 ? documentContext.Substring(0, 50) + "..." 
                                 : documentContext);
                     }
-                    
-                    // Generate system prompt for document context
-                    systemPrompt = _promptEngineeringService.CreateSystemPrompt(documentInfo, documentContext);
                 }
                 
                 // Use the provided system prompt if available, otherwise create one
@@ -174,7 +160,7 @@ namespace Backend.Services
                     }
                     catch (Exception ex)
                     {
-                        _logger.LogError(ex, "Error calling OpenAI API: {ErrorMessage}", ex.Message);
+                        _logger.LogError(ex, "Error calling OpenAI API");
                         throw;
                     }
                 }
@@ -235,15 +221,14 @@ namespace Backend.Services
                 // Process chat with document context
                 _logger.LogInformation("Processing chat with document context for {FileName}", fileName);
                 
-                // Use our specialized services to enhance the context
+                // Use our specialized services to enhance the context and prompt
                 string documentContext = _documentContextService.PrepareDocumentContext(documentInfo, userMessage);
                 
                 _logger.LogInformation("Created document context ({ContextLength} chars)", 
                     documentContext?.Length ?? 0);
                 
-                // Process chat with the document context
-                // Make sure we use the correct parameter name to match the ProcessChatRequest method signature
-                string response = await ProcessChatRequest(message: userMessage, documentInfo: documentInfo);
+                // Process chat with the document context - renamed to match interface
+                string response = await ProcessChatRequest(userMessage, documentInfo);
                 
                 return (response, documentInfo);
             }

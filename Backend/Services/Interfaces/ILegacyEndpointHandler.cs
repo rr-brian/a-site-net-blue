@@ -2,7 +2,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using System.Threading.Tasks;
 
-namespace Backend.Services
+namespace Backend.Services.Interfaces
 {
     /// <summary>
     /// Interface for handling legacy endpoints to maintain backward compatibility

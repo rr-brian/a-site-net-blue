@@ -1,7 +1,7 @@
 using Microsoft.AspNetCore.Http;
 using System.Threading.Tasks;
 
-namespace Backend.Services
+namespace Backend.Services.Interfaces
 {
     /// <summary>
     /// Service for processing document files and extracting text content

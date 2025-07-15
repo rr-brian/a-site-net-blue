@@ -1,0 +1,109 @@
+using Microsoft.AspNetCore.Mvc;
+using System;
+using System.Threading.Tasks;
+using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.Logging;
+using Backend.Models;
+using Backend.Services;
+
+namespace Backend.Controllers
+{
+    /// <summary>
+    /// Handles core chat functionality without document context
+    /// </summary>
+    [ApiController]
+    [Route("api/[controller]")]
+    public class ChatController : ControllerBase
+    {
+        private readonly ILogger<ChatController> _logger;
+        private readonly ChatService _chatService;
+        private readonly IDocumentPersistenceService _documentPersistenceService;
+        private readonly LegacyEndpointHandler _legacyEndpointHandler;
+        private readonly IRequestDiagnosticsService _requestDiagnosticsService;
+        
+        public ChatController(
+            ILogger<ChatController> logger,
+            ChatService chatService,
+            IDocumentPersistenceService documentPersistenceService,
+            LegacyEndpointHandler legacyEndpointHandler,
+            IRequestDiagnosticsService requestDiagnosticsService)
+        {
+            _logger = logger;
+            _chatService = chatService;
+            _documentPersistenceService = documentPersistenceService;
+            _legacyEndpointHandler = legacyEndpointHandler;
+            _requestDiagnosticsService = requestDiagnosticsService;
+        }
+        
+        /// <summary>
+        /// Processes a chat request, with optional document context
+        /// </summary>
+        [HttpPost]
+        public async Task<ActionResult<ChatResponse>> PostAsync([FromBody] ChatRequest request)
+        {
+            try
+            {
+                // Log request details
+                _requestDiagnosticsService.LogRequestDetails(HttpContext);
+                _logger.LogInformation("Received chat request. MaintainDocumentContext: {MaintainContext}", request.MaintainDocumentContext);
+                
+                // Get the document from our persistence service using the session ID
+                string sessionId = HttpContext.Session.Id;
+                _logger.LogInformation("Processing chat request for session ID: {SessionId}", sessionId);
+                
+                // Use client-provided session ID as a fallback if available
+                string clientSessionId = request.ClientSessionId;
+                if (!string.IsNullOrEmpty(clientSessionId))
+                {
+                    _logger.LogInformation("Using client-provided session ID: {ClientSessionId}", clientSessionId);
+                    sessionId = clientSessionId;
+                }
+
+                var persistedDocument = await _documentPersistenceService.GetDocumentAsync(sessionId);
+                
+                // Get the response from ChatGPT
+                var chatResponse = await _chatService.GetChatResponseAsync(
+                    request.Message,
+                    sessionId,
+                    persistedDocument?.Chunks,
+                    request.MaintainDocumentContext);
+                
+                // If we have document info, include it in the response
+                if (persistedDocument != null)
+                {
+                    chatResponse.DocumentInfo = new DocumentInfo
+                    {
+                        FileName = persistedDocument.FileName,
+                        ChunkCount = persistedDocument.Chunks?.Count ?? 0
+                    };
+                    _logger.LogInformation("Including document info in response: {FileName}", persistedDocument.FileName);
+                }
+                
+                return Ok(chatResponse);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error processing chat request: {Message}", ex.Message);
+                return StatusCode(500, new ChatResponse { Response = "An error occurred while processing your request." });
+            }
+        }
+
+        /// <summary>
+        /// Legacy endpoint for file upload and chat, redirects to DocumentChatController
+        /// </summary>
+        [HttpPost("with-file")]
+        [RequestSizeLimit(52428800)] // 50MB limit explicitly set for this endpoint
+        [RequestFormLimits(MultipartBodyLengthLimit = 52428800)] // 50MB for multipart
+        public async Task<IActionResult> ChatWithFileFallback(IFormFile file, [FromForm] string message, [FromForm] string clientSessionId)
+        {
+            _logger.LogInformation("Legacy endpoint /api/chat/with-file called, forwarding to LegacyEndpointHandler");
+            
+            // Delegate to the LegacyEndpointHandler
+            return await _legacyEndpointHandler.HandleChatWithFileRequestAsync(
+                HttpContext,
+                file,
+                message,
+                clientSessionId);
+        }
+    }
+}

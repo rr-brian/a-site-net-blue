@@ -1,7 +1,7 @@
 using System.Threading.Tasks;
 using Backend.Models;
 
-namespace Backend.Services
+namespace Backend.Services.Interfaces
 {
     /// <summary>
     /// Interface for chat processing service

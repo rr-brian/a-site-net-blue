@@ -1,6 +1,6 @@
 using Microsoft.AspNetCore.Http;
 
-namespace Backend.Services
+namespace Backend.Services.Interfaces
 {
     /// <summary>
     /// Service for diagnosing and logging details about HTTP requests

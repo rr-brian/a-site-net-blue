@@ -14,7 +14,7 @@ using Microsoft.Extensions.Logging;
 
 namespace Backend.Services
 {
-    public class DocumentProcessingService
+    public class DocumentProcessingService : IDocumentProcessingService
     {
         private readonly ILogger<DocumentProcessingService> _logger;
 

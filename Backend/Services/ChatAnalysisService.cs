@@ -9,7 +9,7 @@ namespace Backend.Services
     /// <summary>
     /// Service for analyzing user chat messages and extracting relevant information
     /// </summary>
-    public class ChatAnalysisService
+    public class ChatAnalysisService : IChatAnalysisService
     {
         private readonly ILogger<ChatAnalysisService> _logger;
         
@@ -101,7 +101,7 @@ namespace Backend.Services
         /// <summary>
         /// Extract requested page numbers from a user message
         /// </summary>
-        public List<int> ExtractRequestedPages(string message)
+        public List<int> ExtractPageReferences(string message)
         {
             var result = new List<int>();
             

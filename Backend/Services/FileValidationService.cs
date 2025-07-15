@@ -4,6 +4,7 @@ using System;
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
+using Backend.Services.Interfaces;
 
 namespace Backend.Services
 {
@@ -11,7 +12,7 @@ namespace Backend.Services
     /// <summary>
     /// Implementation of file validation service
     /// </summary>
-    public class FileValidationService : IFileValidationService
+    public class FileValidationService : Interfaces.IFileValidationService
     {
         private readonly ILogger<FileValidationService> _logger;
         private readonly string[] _allowedExtensions = new[] { ".pdf", ".docx", ".xlsx" };

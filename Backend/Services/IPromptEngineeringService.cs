@@ -1,9 +1,9 @@
 using Backend.Models;
 
-namespace Backend.Services.Interfaces
+namespace Backend.Services
 {
     /// <summary>
-    /// Interface for services that construct effective prompts for LLM interactions
+    /// Interface for constructing effective prompts for LLM interactions
     /// </summary>
     public interface IPromptEngineeringService
     {

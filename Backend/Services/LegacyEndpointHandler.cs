@@ -14,26 +14,26 @@ namespace Backend.Services
     /// <summary>
     /// Handles legacy endpoints to maintain backward compatibility
     /// </summary>
-    public class LegacyEndpointHandler : ILegacyEndpointHandler
+    public class LegacyEndpointHandler : Interfaces.ILegacyEndpointHandler
     {
-        private readonly ILogger<LegacyEndpointHandler> _logger;
-        private readonly IFileValidationService _fileValidationService;
-        private readonly IRequestDiagnosticsService _requestDiagnosticsService;
-        private readonly IChatService _chatService;
-        private readonly IDocumentProcessingService _documentProcessingService;
-        private readonly IDocumentContextService _documentContextService;
-        private readonly IDocumentPersistenceService _documentPersistenceService;
-        private readonly IChatAnalysisService _chatAnalysisService;
+        private readonly Microsoft.Extensions.Logging.ILogger<LegacyEndpointHandler> _logger;
+        private readonly Backend.Services.Interfaces.IFileValidationService _fileValidationService;
+        private readonly Backend.Services.Interfaces.IRequestDiagnosticsService _requestDiagnosticsService;
+        private readonly Backend.Services.Interfaces.IChatService _chatService;
+        private readonly Backend.Services.Interfaces.IDocumentProcessingService _documentProcessingService;
+        private readonly Backend.Services.Interfaces.IDocumentContextService _documentContextService;
+        private readonly Backend.Services.Interfaces.IDocumentPersistenceService _documentPersistenceService;
+        private readonly Backend.Services.Interfaces.IChatAnalysisService _chatAnalysisService;
         
         public LegacyEndpointHandler(
-            ILogger<LegacyEndpointHandler> logger,
-            IFileValidationService fileValidationService,
-            IRequestDiagnosticsService requestDiagnosticsService,
-            IChatService chatService,
-            IDocumentProcessingService documentProcessingService,
-            IDocumentContextService documentContextService,
-            IDocumentPersistenceService documentPersistenceService,
-            IChatAnalysisService chatAnalysisService)
+            Microsoft.Extensions.Logging.ILogger<LegacyEndpointHandler> logger,
+            Backend.Services.Interfaces.IFileValidationService fileValidationService,
+            Backend.Services.Interfaces.IRequestDiagnosticsService requestDiagnosticsService,
+            Backend.Services.Interfaces.IChatService chatService,
+            Backend.Services.Interfaces.IDocumentProcessingService documentProcessingService,
+            Backend.Services.Interfaces.IDocumentContextService documentContextService,
+            Backend.Services.Interfaces.IDocumentPersistenceService documentPersistenceService,
+            Backend.Services.Interfaces.IChatAnalysisService chatAnalysisService)
         {
             _logger = logger;
             _fileValidationService = fileValidationService;

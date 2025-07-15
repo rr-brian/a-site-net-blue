@@ -1,12 +1,11 @@
-using System;
-using System.Collections.Generic;
 using System.Threading.Tasks;
 using Backend.Models;
+using System.Collections.Generic;
 
-namespace Backend.Services.Interfaces
+namespace Backend.Services
 {
     /// <summary>
-    /// Interface for document context service that prepares document context for LLM consumption
+    /// Interface for document context preparation and management
     /// </summary>
     public interface IDocumentContextService
     {

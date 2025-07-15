@@ -5,6 +5,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
+using Backend.Services.Interfaces;
 
 namespace Backend.Services
 {
@@ -12,7 +13,7 @@ namespace Backend.Services
     /// <summary>
     /// Implementation of the request diagnostics service
     /// </summary>
-    public class RequestDiagnosticsService : IRequestDiagnosticsService
+    public class RequestDiagnosticsService : Interfaces.IRequestDiagnosticsService
     {
         private readonly ILogger<RequestDiagnosticsService> _logger;
         

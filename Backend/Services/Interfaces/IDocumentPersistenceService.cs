@@ -1,7 +1,7 @@
 using Backend.Models;
 using System.Threading.Tasks;
 
-namespace Backend.Services
+namespace Backend.Services.Interfaces
 {
     /// <summary>
     /// Interface for services that handle document persistence between requests
