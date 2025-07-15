@@ -111,18 +111,51 @@ async function callChatWithFileAPI(message, file) {
     
     console.log(`Sending file upload with clientSessionId: ${clientSessionId}`);
     
-    // Call the document-chat with-file API (updated to use DocumentChatController)
-    const response = await fetch('/api/document-chat/with-file', {
-        method: 'POST',
-        body: formData
-    });
-    
-    if (!response.ok) {
-        throw new Error('Error processing file with message');
+    // Try the new endpoint first (preferred)
+    try {
+        console.log('Attempting to use new endpoint: /api/document-chat/with-file');
+        const response = await fetch('/api/document-chat/with-file', {
+            method: 'POST',
+            body: formData
+        });
+        
+        if (response.ok) {
+            console.log('Successfully used new endpoint');
+            const data = await response.json();
+            return handleDocumentResponse(data, file);
+        } else {
+            console.warn('New endpoint failed with status:', response.status);
+            // Let it fall through to the fallback
+        }
+    } catch (error) {
+        console.warn('Error using new endpoint:', error);
+        // Continue to fallback
     }
     
-    const data = await response.json();
-    
+    // Fallback to old endpoint if new one failed
+    try {
+        console.log('Falling back to legacy endpoint: /api/chat/with-file');
+        const legacyResponse = await fetch('/api/chat/with-file', {
+            method: 'POST',
+            body: formData
+        });
+        
+        if (!legacyResponse.ok) {
+            console.error('Both endpoints failed. Legacy status:', legacyResponse.status);
+            throw new Error('Error processing file with message');
+        }
+        
+        console.log('Successfully used legacy endpoint');
+        const data = await legacyResponse.json();
+        return handleDocumentResponse(data, file);
+    } catch (error) {
+        console.error('All endpoints failed:', error);
+        throw new Error('Error processing file with message');
+    }
+}
+
+// Helper function to handle document response processing
+function handleDocumentResponse(data, file) {
     // Set flag indicating we now have a document in context
     documentInContext = true;
     // Persist this state in localStorage

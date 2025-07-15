@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
 using Backend.Models;
 using Backend.Services;
+using System.IO;
 
 namespace Backend.Controllers
 {
@@ -189,6 +190,65 @@ namespace Backend.Controllers
             {
                 _logger.LogError(ex, "Error processing chat request");
                 return StatusCode(500, new ChatResponse { Response = "An error occurred while processing your request." });
+            }
+        }
+
+        /// <summary>
+        /// Legacy fallback endpoint for backwards compatibility with old frontend code
+        /// Redirects requests to the DocumentChatController
+        /// </summary>
+        [HttpPost("with-file")]
+        public async Task<IActionResult> ChatWithFileFallback(IFormFile file, [FromForm] string message, [FromForm] string clientSessionId)
+        {
+            _logger.LogWarning("Legacy endpoint /api/chat/with-file called. Redirecting to /api/document-chat/with-file");
+            
+            try
+            {
+                // Forward the request to the DocumentChatController (we don't have direct access to it)
+                // So we'll reconstruct the request manually
+                
+                // Create a new memory stream to copy the file
+                using var memoryStream = new MemoryStream();
+                if (file != null)
+                {
+                    await file.CopyToAsync(memoryStream);
+                    memoryStream.Position = 0;
+                }
+
+                // Create a new HttpContext with the path modified to the new endpoint
+                var originalPath = HttpContext.Request.Path;
+                var originalMethod = HttpContext.Request.Method;
+                
+                _logger.LogInformation("Forwarding {File} with message from legacy endpoint to document-chat controller", 
+                    file?.FileName ?? "<no file>");
+
+                // Create a document chat controller and call it directly
+                // We're using constructor injection to get services, so we need to get them from the controller's DI
+                var documentChatController = (DocumentChatController)HttpContext.RequestServices
+                    .GetService(typeof(DocumentChatController));
+                
+                // Set the controller's ControllerContext to use our current HttpContext
+                documentChatController.ControllerContext = new ControllerContext
+                {
+                    HttpContext = HttpContext
+                };
+                
+                // Call the actual endpoint method
+                if (file != null)
+                {
+                    // Reset the stream position
+                    file.OpenReadStream().Position = 0;
+                    return await documentChatController.ChatWithFile(file, message);
+                }
+                else
+                {
+                    return BadRequest("No file provided");
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error in legacy endpoint redirect");
+                return StatusCode(500, new { response = "An error occurred while processing your file upload." });
             }
         }
     }
