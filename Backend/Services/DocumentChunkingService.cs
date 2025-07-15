@@ -251,7 +251,7 @@ namespace Backend.Services
         /// <summary>
         /// Enhances chunks with additional metadata to improve searchability
         /// </summary>
-        private List<string> EnhanceChunksWithMetadata(List<string> chunks)
+        public List<string> EnhanceChunksWithMetadata(List<string> chunks)
         {
             var enhancedChunks = new List<string>();
             int chunkIndex = 0;
