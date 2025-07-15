@@ -153,9 +153,9 @@ app.UseStaticFiles();
 app.Use(async (context, next) => {
     if (context.Request.Path.Value.EndsWith(".html", StringComparison.OrdinalIgnoreCase) ||
         context.Request.Path.Value == "/") {
-        context.Response.Headers.Add("Cache-Control", "no-cache, no-store, must-revalidate");
-        context.Response.Headers.Add("Pragma", "no-cache");
-        context.Response.Headers.Add("Expires", "0");
+        context.Response.Headers.Append("Cache-Control", "no-cache, no-store, must-revalidate");
+        context.Response.Headers.Append("Pragma", "no-cache");
+        context.Response.Headers.Append("Expires", "0");
     }
     await next();
 });
