@@ -9,7 +9,7 @@ namespace Backend.Services
     /// <summary>
     /// Service for constructing effective prompts for LLM interactions
     /// </summary>
-    public class PromptEngineeringService
+    public class PromptEngineeringService : IPromptEngineeringService
     {
         private readonly ILogger<PromptEngineeringService> _logger;
         private readonly OpenAIConfiguration _openAIConfig;
@@ -23,11 +23,11 @@ namespace Backend.Services
         /// <summary>
         /// Create a system prompt for the AI, with optional document context
         /// </summary>
-        public string CreateSystemPrompt(DocumentInfo documentInfo = null, string documentContext = null)
+        public string CreateSystemPrompt(DocumentInfo? documentInfo = null, string? documentContext = null)
         {
             // Start with the base system prompt from configuration
             var systemPromptBuilder = new StringBuilder();
-            systemPromptBuilder.AppendLine(_openAIConfig.SystemPrompt ?? "You are RAI, a helpful AI assistant.");
+            systemPromptBuilder.AppendLine(_openAIConfig.SystemPrompt ?? string.Empty);
             
             // Add document context instructions if we have document info
             if (documentInfo != null)
@@ -40,7 +40,7 @@ namespace Backend.Services
                 systemPromptBuilder.AppendLine("4. Be precise about square footage numbers, dates, and other numerical data.");
                 
                 // Add page 42 specific instructions if it exists in document or is requested
-                if (documentContext != null && documentContext.Contains("PAGE 42") || documentContext.Contains("Page 42"))
+                if (documentContext != null && (documentContext.Contains("PAGE 42") || documentContext.Contains("Page 42")))
                 {
                     systemPromptBuilder.AppendLine("\nIMPORTANT: Page 42 of this document contains significant information. Pay close attention to content from this page when relevant to the query.");
                 }

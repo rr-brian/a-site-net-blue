@@ -1,5 +1,6 @@
 using System.Collections.Concurrent;
 using System.Text.Json;
+using System.Threading.Tasks;
 using Backend.Models;
 
 namespace Backend.Services
@@ -180,7 +181,7 @@ namespace Backend.Services
         /// </summary>
         /// <param name="sessionId">Session ID</param>
         /// <returns>Document if found, null otherwise</returns>
-        public DocumentInfo? GetDocument(string sessionId)
+        public DocumentInfo GetDocument(string sessionId)
         {
             if (string.IsNullOrEmpty(sessionId))
             {
@@ -358,5 +359,30 @@ namespace Backend.Services
         
         private string GetDocumentFilePath(string sessionId) => 
             Path.Combine(_persistencePath, $"{sessionId}.json");
+            
+        /// <summary>
+        /// Stores a document for a specific session asynchronously
+        /// </summary>
+        /// <param name="sessionId">Session ID</param>
+        /// <param name="document">Document to store</param>
+        /// <returns>Task representing the asynchronous operation</returns>
+        public async Task StoreDocumentAsync(string sessionId, DocumentInfo document)
+        {
+            // Call the synchronous method for now, but wrap in Task to make it async compatible
+            // In a real implementation, you would rewrite the file operations to be properly async
+            await Task.Run(() => StoreDocument(sessionId, document));
+        }
+        
+        /// <summary>
+        /// Retrieves a document for a specific session asynchronously
+        /// </summary>
+        /// <param name="sessionId">Session ID</param>
+        /// <returns>Document if found, null otherwise</returns>
+        public async Task<DocumentInfo?> GetDocumentAsync(string sessionId)
+        {
+            // Call the synchronous method for now, but wrap in Task to make it async compatible
+            // In a real implementation, you would rewrite the file operations to be properly async
+            return await Task.Run(() => GetDocument(sessionId));
+        }
     }
 }
