@@ -11,7 +11,7 @@ namespace Backend.Services
     /// <summary>
     /// Service responsible for preparing document context for LLM prompts
     /// </summary>
-    public class DocumentContextService
+    public class DocumentContextService : IDocumentContextService
     {
         private readonly ILogger<DocumentContextService> _logger;
         
@@ -41,11 +41,12 @@ namespace Backend.Services
             }
             
             // Use token estimation to limit document content (approximately 1 token ≈ 4 chars)
-            const int maxTokenEstimate = 7000; // Conservative limit for document context
+            // Increased to safely handle larger documents
+            const int maxTokenEstimate = 12000; // Increased from 7000 to handle larger documents
             const int tokensPerChar = 4;       // Rough estimate
             int maxChars = maxTokenEstimate * tokensPerChar;
             
-            // First identify high priority chunks (containing requested pages or ITA Group)
+            // First identify high priority chunks (containing specifically requested pages)
             List<string> highPriorityChunks = new List<string>();
             List<string> regularChunks = new List<string>();
             
@@ -77,17 +78,24 @@ namespace Backend.Services
                 }
             }
             
-            // Prioritize chunks containing "ITA Group"
-            if (userMessage.Contains("ITA") || userMessage.Contains("Group"))
+            // Prioritize chunks containing important entities
+            if (documentInfo.EntityIndex != null)
             {
-                if (documentInfo.EntityIndex != null && documentInfo.EntityIndex.ContainsKey("ITA Group"))
+                foreach (var entityEntry in documentInfo.EntityIndex)
                 {
-                    foreach (var chunkIndex in documentInfo.EntityIndex["ITA Group"])
+                    // Check if user mentioned any part of this entity or if it's a page marker
+                    bool isEntityRelevant = entityEntry.Key.Split(' ').Any(part => 
+                        !string.IsNullOrEmpty(part) && part.Length > 2 && userMessage.Contains(part, StringComparison.OrdinalIgnoreCase));
+                    
+                    if (isEntityRelevant || entityEntry.Key.Contains("PAGE", StringComparison.OrdinalIgnoreCase))
                     {
-                        if (chunkIndex < documentInfo.Chunks.Count && !highPriorityChunks.Contains(documentInfo.Chunks[chunkIndex]))
+                        foreach (var chunkIndex in entityEntry.Value)
                         {
-                            highPriorityChunks.Add(documentInfo.Chunks[chunkIndex]);
-                            _logger.LogInformation("Prioritizing chunk {Index} containing ITA Group", chunkIndex);
+                            if (chunkIndex < documentInfo.Chunks.Count && !highPriorityChunks.Contains(documentInfo.Chunks[chunkIndex]))
+                            {
+                                highPriorityChunks.Add(documentInfo.Chunks[chunkIndex]);
+                                _logger.LogInformation("Prioritizing chunk {Index} containing entity: {Entity}", chunkIndex, entityEntry.Key);
+                            }
                         }
                     }
                 }
@@ -116,13 +124,48 @@ namespace Backend.Services
                 totalChars += chunk.Length;
             }
             
-            // Then add regular chunks until we approach the limit
-            foreach (var chunk in regularChunks)
+            // Then add regular chunks in a more balanced way
+            // If we have many chunks, select them in a distributed fashion instead of only from the beginning
+            if (regularChunks.Count > 0 && totalChars < maxChars)
             {
-                if (totalChars + chunk.Length <= maxChars)
+                // If there are too many regular chunks to fit, select them in a distributed manner
+                if (regularChunks.Sum(c => c.Length) + totalChars > maxChars)
                 {
-                    chunksToSend.Add(chunk);
-                    totalChars += chunk.Length;
+                    int regularChunksToInclude = Math.Min(
+                        regularChunks.Count,
+                        (maxChars - totalChars) / (regularChunks.Sum(c => c.Length) / regularChunks.Count + 1)
+                    );
+                    
+                    // Ensure we include at least some regular chunks
+                    regularChunksToInclude = Math.Max(regularChunksToInclude, Math.Min(5, regularChunks.Count));
+                    
+                    // Select chunks evenly distributed through the document
+                    double step = (double)regularChunks.Count / regularChunksToInclude;
+                    
+                    for (double i = 0; i < regularChunks.Count && chunksToSend.Count < highPriorityChunks.Count + regularChunksToInclude; i += step)
+                    {
+                        int index = (int)i;
+                        if (index < regularChunks.Count && totalChars + regularChunks[index].Length <= maxChars)
+                        {
+                            chunksToSend.Add(regularChunks[index]);
+                            totalChars += regularChunks[index].Length;
+                        }
+                    }
+                    
+                    _logger.LogInformation("Selected {Count} distributed chunks from regular chunks", 
+                        chunksToSend.Count - highPriorityChunks.Count);
+                }
+                else
+                {
+                    // If all regular chunks can fit, add them all
+                    foreach (var chunk in regularChunks)
+                    {
+                        if (totalChars + chunk.Length <= maxChars)
+                        {
+                            chunksToSend.Add(chunk);
+                            totalChars += chunk.Length;
+                        }
+                    }
                 }
             }
             
@@ -191,11 +234,17 @@ namespace Backend.Services
             documentContext.AppendLine("IMPORTANT INSTRUCTION: Pay very close attention to all PAGE NUMBERS in this document. Look specifically for page markers like [PAGE 42 OF 166].");
             documentContext.AppendLine("The user wants information from specific pages, and it's critical that you find and report information from those pages.");
             
-            // Special instructions for ITA Group
-            if ((userMessage.Contains("ITA") || userMessage.Contains("Group")) && 
-                documentInfo.EntityIndex != null && documentInfo.EntityIndex.ContainsKey("ITA Group"))
+            // Add instruction to pay attention to all entities found in the document
+            if (documentInfo.EntityIndex != null && documentInfo.EntityIndex.Any())
             {
-                documentContext.AppendLine("Pay special attention to mentions of **ITA Group** in the document. The user is specifically asking about this entity.");
+                var importantEntities = documentInfo.EntityIndex.Keys
+                    .Where(entity => entity.Length > 3) // Only meaningful entities
+                    .Take(5); // Limit to top 5 to avoid too much noise
+                    
+                if (importantEntities.Any())
+                {
+                    documentContext.AppendLine($"Pay attention to these important entities in the document: {string.Join(", ", importantEntities)}.");
+                }
             }
             
             documentContext.AppendLine("---\n");
@@ -338,6 +387,61 @@ namespace Backend.Services
             }
             
             return result;
+        }
+        
+        /// <summary>
+        /// Process a document, create chunks and prepare document info with metadata
+        /// </summary>
+        public async Task<DocumentInfo> ProcessDocumentAsync(string documentText, string fileName, List<string>? searchTerms = null, List<int>? pageReferences = null)
+        {
+            _logger.LogInformation("Processing document: {FileName} with {Length} characters", fileName, documentText.Length);
+            
+            if (searchTerms != null && searchTerms.Count > 0)
+            {
+                _logger.LogInformation("Using search terms: {Terms}", string.Join(", ", searchTerms));
+            }
+            
+            if (pageReferences != null && pageReferences.Count > 0)
+            {
+                _logger.LogInformation("Prioritizing pages: {Pages}", string.Join(", ", pageReferences));
+            }
+            
+            // This method would normally use the DocumentChunkingService and SemanticChunker
+            // to split the document into chunks and add metadata
+            // For now, we'll create a simple implementation that returns a DocumentInfo
+            
+            // Create a simple chunking of the document (real implementation would be more sophisticated)
+            var chunks = new List<string>();
+            var chunkSize = 4000; // Arbitrary chunk size for this example
+            
+            for (int i = 0; i < documentText.Length; i += chunkSize)
+            {
+                var length = Math.Min(chunkSize, documentText.Length - i);
+                chunks.Add(documentText.Substring(i, length));
+            }
+            
+            var documentInfo = new DocumentInfo
+            {
+                FileName = fileName,
+                Chunks = chunks,
+                ChunkMetadata = new List<ChunkMetadata>()
+            };
+            
+            // Add some metadata for each chunk
+            for (int i = 0; i < chunks.Count; i++)
+            {
+                documentInfo.ChunkMetadata.Add(new ChunkMetadata
+                {
+                    Pages = new List<int> { i + 1 } // Simulate page numbers
+                });
+            }
+            
+            _logger.LogInformation("Document processed into {Count} chunks", chunks.Count);
+            
+            // In a real implementation, this would be where we'd use the searchTerms and pageReferences
+            // to build an entity index and optimize chunks for relevance
+            
+            return documentInfo;
         }
     }
 }

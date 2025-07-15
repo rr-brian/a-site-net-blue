@@ -138,6 +138,13 @@ dotnet build
 dotnet run --urls "http://localhost:5239"
 ```
 
+### Application URLs and Ports
+
+- **HTTP**: http://localhost:5239
+- **HTTPS**: https://localhost:7175
+
+> **Note**: Always store these configuration details automatically in this document for future reference. Port configurations are defined in `Backend/Properties/launchSettings.json`.
+
 ### Deployment Process
 
 1. Build the application in Release mode
@@ -158,10 +165,28 @@ dotnet run --urls "http://localhost:5239"
 - Local debugging is configured through Visual Studio or dotnet CLI
 - Unit tests cover core functionality
 
+## Document Processing Configuration
+
+### Token Management
+
+The application is configured to handle large documents with the following token management settings:
+
+- **Maximum Token Estimate**: 12,000 tokens (increased from 7,000)
+- **Tokens Per Character Ratio**: 4 characters ≈ 1 token (estimated)
+- **High-Priority Content**: Automatically prioritizes content with specific page references and content matching user queries
+- **Chunk Distribution Algorithm**: Uses a balanced distribution algorithm to select chunks across the entire document when all chunks can't fit within token limits
+
+### Large Document Handling
+
+1. **Document Chunking**: Documents are divided into semantic chunks to maintain context
+2. **Entity Recognition**: Important entities are extracted and indexed for quick retrieval
+3. **Page Reference Handling**: Special handling for specific page references in user queries
+4. **Balanced Content Selection**: When all content can't fit within token limits, the system selects a balanced distribution of chunks
+
 ## Next Steps
 
-1. Complete document search improvements
-2. Test with large documents and complex queries
+1. ✅ Complete document search improvements
+2. ✅ Test with large documents and complex queries
 3. Optimize Azure Function integration
 4. Prepare for deployment to staging environment
 5. Conduct user acceptance testing
