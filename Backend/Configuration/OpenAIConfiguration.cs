@@ -25,13 +25,17 @@ namespace Backend.Configuration
         {
             try
             {
-                // Try to get values from OpenAI section first (development environment)
-                Endpoint = _configuration["OpenAI:Endpoint"];
-                ApiKey = _configuration["OpenAI:ApiKey"];
-                DeploymentName = _configuration["OpenAI:DeploymentName"];
-                SystemPrompt = _configuration["OpenAI:SystemPrompt"];
-
-                // If those aren't available, try AzureOpenAI section (production environment)
+                // First try environment variables (highest priority for Azure deployment)
+                Endpoint = Environment.GetEnvironmentVariable("AZURE_OPENAI_ENDPOINT");
+                ApiKey = Environment.GetEnvironmentVariable("AZURE_OPENAI_API_KEY");
+                DeploymentName = Environment.GetEnvironmentVariable("AZURE_OPENAI_DEPLOYMENT");
+                SystemPrompt = Environment.GetEnvironmentVariable("AZURE_OPENAI_SYSTEM_PROMPT");
+                
+                _logger.LogInformation("Checking environment variables: AZURE_OPENAI_ENDPOINT={HasEndpoint}, AZURE_OPENAI_API_KEY={HasApiKey}", 
+                    !string.IsNullOrEmpty(Endpoint),
+                    !string.IsNullOrEmpty(ApiKey));
+                
+                // If environment variables aren't available, try AzureOpenAI section (configuration)
                 if (string.IsNullOrEmpty(Endpoint))
                     Endpoint = _configuration["AzureOpenAI:Endpoint"];
                 
@@ -44,12 +48,18 @@ namespace Backend.Configuration
                 if (string.IsNullOrEmpty(SystemPrompt))
                     SystemPrompt = _configuration["AzureOpenAI:SystemPrompt"];
 
-                // Finally, try environment variables
+                // Finally, try the OpenAI section (development environment)
                 if (string.IsNullOrEmpty(Endpoint))
-                    Endpoint = Environment.GetEnvironmentVariable("AZURE_OPENAI_ENDPOINT");
+                    Endpoint = _configuration["OpenAI:Endpoint"];
                 
                 if (string.IsNullOrEmpty(ApiKey))
-                    ApiKey = Environment.GetEnvironmentVariable("AZURE_OPENAI_API_KEY");
+                    ApiKey = _configuration["OpenAI:ApiKey"];
+                
+                if (string.IsNullOrEmpty(DeploymentName))
+                    DeploymentName = _configuration["OpenAI:DeploymentName"];
+                
+                if (string.IsNullOrEmpty(SystemPrompt))
+                    SystemPrompt = _configuration["OpenAI:SystemPrompt"];
 
                 // Log configuration status
                 _logger.LogInformation("OpenAI Configuration: Endpoint={HasEndpoint}, ApiKey={HasApiKey}, DeploymentName={DeploymentName}",
