@@ -325,7 +325,24 @@ namespace Backend.Controllers
                             clientSessionId ?? "<none>");
 
                         _logger.LogInformation("Forwarding request to DocumentChatController");
-                        return await _documentChatController.ChatWithFile(file, message, clientSessionId);
+                        
+                        // Get the DocumentChatController from DI
+                        var documentChatController = (DocumentChatController)HttpContext.RequestServices
+                            .GetService(typeof(DocumentChatController));
+                            
+                        if (documentChatController == null)
+                        {
+                            _logger.LogError("Failed to resolve DocumentChatController from DI");
+                            return StatusCode(500, new { error = "Server error resolving document controller" });
+                        }
+                        
+                        // Set the controller's ControllerContext to use our current HttpContext
+                        documentChatController.ControllerContext = new ControllerContext
+                        {
+                            HttpContext = HttpContext
+                        };
+                        
+                        return await documentChatController.ChatWithFile(file, message, clientSessionId);
                     }
                     catch (Exception ex)
                     {
