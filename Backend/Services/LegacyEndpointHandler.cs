@@ -182,12 +182,21 @@ namespace Backend.Services
                     var chatResponse = new ChatResponse
                     {
                         Response = responseText,
-                        DocumentInContext = true,
-                        DocumentInfo = new {
+                        DocumentInContext = documentInfo != null
+                    };
+                    
+                    // Only include document info if it's not null
+                    if (documentInfo != null)
+                    {
+                        chatResponse.DocumentInfo = new {
                             fileName = documentInfo.FileName,
                             chunkCount = documentInfo.Chunks?.Count ?? 0
-                        }
-                    };
+                        };
+                    }
+                    else
+                    {
+                        chatResponse.DocumentInfo = new { fileName = "unknown", chunkCount = 0 };
+                    }
                     
                     return new OkObjectResult(chatResponse);
                 }
