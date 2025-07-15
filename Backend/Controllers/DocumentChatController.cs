@@ -43,108 +43,148 @@ namespace Backend.Controllers
         [HttpPost("with-file")]
         public async Task<IActionResult> ChatWithFile(IFormFile file, [FromForm] string message, [FromForm] string clientSessionId = null)
         {
-            if (file == null || file.Length == 0)
-            {
-                return BadRequest("No file uploaded");
-            }
-            
-            if (string.IsNullOrEmpty(message))
-            {
-                return BadRequest("No message provided");
-            }
-            
-            _logger.LogInformation("Received chat with file request. File: {FileName}, Message: {Message}", file.FileName, message);
-            
-            // Check file extension
-            var extension = Path.GetExtension(file.FileName).ToLowerInvariant();
-            if (extension != ".pdf" && extension != ".docx" && extension != ".xlsx")
-            {
-                return BadRequest("Unsupported file format. Please upload a PDF, Word, or Excel file.");
-            }
+            _logger.LogInformation("DocumentChatController.ChatWithFile called with: File={FileName}, FileSize={FileSize}, Message={MessageLength}, ClientSessionId={SessionId}",
+                file?.FileName ?? "<no file>", 
+                file?.Length ?? 0,
+                message?.Length ?? 0, 
+                clientSessionId ?? "<not provided>");
             
             try
             {
-                // Extract text from the document
-                string documentText = await _documentProcessingService.ExtractTextFromDocument(file);
-                
-                if (string.IsNullOrEmpty(documentText))
+                // Validate all required parameters
+                if (file == null)
                 {
-                    return BadRequest("Could not extract text from the document");
+                    _logger.LogError("ChatWithFile: File parameter is null");
+                    return BadRequest("No file provided");
                 }
                 
-                _logger.LogInformation("Extracted {Length} characters from document {FileName}", documentText.Length, file.FileName);
-                
-                // Use our new semantic chunker for improved document processing
-                var documentInfo = _semanticChunker.ProcessDocument(documentText, file.FileName);
-                
-                _logger.LogInformation("Semantic chunker created {Count} chunks with improved entity detection", documentInfo.Chunks.Count);
-                
-                // Log if we found ITA Group in the document
-                if (documentInfo.EntityIndex.ContainsKey("ITA Group"))
+                if (file.Length == 0)
                 {
-                    var itaChunks = documentInfo.EntityIndex["ITA Group"];
-                    _logger.LogInformation("Found ITA Group in {Count} chunks", itaChunks.Count);
-                    foreach (var chunkIndex in itaChunks.Take(3)) // Log up to 3 examples
-                    {
-                        _logger.LogInformation("ITA Group mention in chunk {Index}: {Preview}", 
-                            chunkIndex, 
-                            documentInfo.Chunks[chunkIndex].Length > 50 
-                                ? documentInfo.Chunks[chunkIndex].Substring(0, 50) + "..." 
-                                : documentInfo.Chunks[chunkIndex]);
-                    }
+                    _logger.LogError("ChatWithFile: File is empty. FileName: {FileName}", file.FileName);
+                    return BadRequest("File is empty");
                 }
                 
-                // Process the chat with the document
-                string response = await _chatService.ProcessChatRequest(message, documentInfo);
-                
-                // Store document in our persistence service for future queries
-                string sessionId = HttpContext.Session.Id;
-                
-                // Check if client provided a session ID from method parameter first
-                string clientSessionIdToUse = clientSessionId;
-                
-                // If not provided as parameter, check form data as fallback
-                if (string.IsNullOrEmpty(clientSessionIdToUse) && HttpContext.Request.Form.ContainsKey("clientSessionId"))
+                if (string.IsNullOrEmpty(message))
                 {
-                    clientSessionIdToUse = HttpContext.Request.Form["clientSessionId"];
-                    _logger.LogInformation("Client session ID from form data: {ClientSessionId}", clientSessionIdToUse);
+                    _logger.LogError("ChatWithFile: Message parameter is empty or null");
+                    return BadRequest("No message provided");
                 }
                 
-                if (!string.IsNullOrEmpty(clientSessionIdToUse))
+                // Log file details for debugging
+                _logger.LogInformation("ChatWithFile processing file: Name={FileName}, ContentType={ContentType}, Size={Size}", 
+                    file.FileName,
+                    file.ContentType,
+                    file.Length);
+                
+                // Check file extension
+                var extension = Path.GetExtension(file.FileName).ToLowerInvariant();
+                if (extension != ".pdf" && extension != ".docx" && extension != ".xlsx")
                 {
-                    _logger.LogInformation("Using client session ID: {ClientSessionId}", clientSessionIdToUse);
+                    _logger.LogError("ChatWithFile: Unsupported file format: {Extension}", extension);
+                    return BadRequest($"Unsupported file format: {extension}. Please upload a PDF, Word, or Excel file.");
                 }
                 
-                // Store using server session ID
-                _documentPersistenceService.StoreDocument(sessionId, documentInfo);
-                _logger.LogInformation("Document saved using server session ID: {SessionId}", sessionId);
-                
-                // Also store using client session ID if available
-                if (!string.IsNullOrEmpty(clientSessionIdToUse))
+                // Verify file stream is available
+                try {
+                    using var stream = file.OpenReadStream();
+                    _logger.LogDebug("File stream opened successfully");
+                } 
+                catch (Exception streamEx) 
                 {
-                    _documentPersistenceService.StoreDocument(clientSessionIdToUse, documentInfo);
-                    _logger.LogInformation("Document also saved using client session ID: {ClientSessionId}", clientSessionIdToUse);
+                    _logger.LogError(streamEx, "ChatWithFile: Error opening file stream");
+                    return StatusCode(500, new { error = $"Unable to read file: {streamEx.Message}" });
+                }
+                try
+                {
+                    // Extract text from the document
+                    string documentText = await _documentProcessingService.ExtractTextFromDocument(file);
                     
-                    // Store client session ID in session for future reference
-                    HttpContext.Session.SetString("ClientSessionId", clientSessionIdToUse);
-                }
-                else
-                {
-                    _logger.LogWarning("No client session ID provided with file upload - document only stored with server session ID");
-                }
-                
-                _logger.LogInformation("Document saved to persistence service: {FileName} with {ChunkCount} chunks", 
-                    documentInfo.FileName, documentInfo.Chunks.Count);
-                
-                return Ok(new { 
-                    response = response, 
-                    documentStored = true,
-                    documentInContext = true,
-                    documentInfo = new {
-                        fileName = documentInfo.FileName,
-                        chunkCount = documentInfo.Chunks.Count
+                    if (string.IsNullOrEmpty(documentText))
+                    {
+                        _logger.LogError("ChatWithFile: Document text extraction failed - empty result");
+                        return BadRequest("Could not extract text from the document");
                     }
-                });
+                    
+                    _logger.LogInformation("Extracted {Length} characters from document {FileName}", documentText.Length, file.FileName);
+                
+                    // Use our new semantic chunker for improved document processing
+                    var documentInfo = _semanticChunker.ProcessDocument(documentText, file.FileName);
+                
+                    if (documentInfo == null || documentInfo.Chunks == null || documentInfo.Chunks.Count == 0)
+                    {
+                        _logger.LogError("ChatWithFile: Document chunking failed");
+                        return BadRequest("Document chunking failed");
+                    }
+                
+                    _logger.LogInformation("Semantic chunker created {Count} chunks with improved entity detection", documentInfo.Chunks.Count);
+                    
+                    // Log if we found ITA Group in the document
+                    if (documentInfo.EntityIndex.ContainsKey("ITA Group"))
+                    {
+                        var itaChunks = documentInfo.EntityIndex["ITA Group"];
+                        _logger.LogInformation("Found ITA Group in {Count} chunks", itaChunks.Count);
+                        foreach (var chunkIndex in itaChunks.Take(3)) // Log up to 3 examples
+                        {
+                            _logger.LogInformation("ITA Group mention in chunk {Index}: {Preview}", 
+                                chunkIndex, 
+                                documentInfo.Chunks[chunkIndex].Length > 50 
+                                    ? documentInfo.Chunks[chunkIndex].Substring(0, 50) + "..." 
+                                    : documentInfo.Chunks[chunkIndex]);
+                        }
+                    }
+                    
+                    // Process the chat with the document
+                    string response = await _chatService.ProcessChatRequest(message, documentInfo);
+                    
+                    // Store document in our persistence service for future queries
+                    string sessionId = HttpContext.Session.Id;
+                    
+                    // Check if client provided a session ID from method parameter first
+                    string clientSessionIdToUse = clientSessionId;
+                    
+                    // If not provided as parameter, check form data as fallback
+                    if (string.IsNullOrEmpty(clientSessionIdToUse) && HttpContext.Request.Form.ContainsKey("clientSessionId"))
+                    {
+                        clientSessionIdToUse = HttpContext.Request.Form["clientSessionId"];
+                        _logger.LogInformation("Client session ID from form data: {ClientSessionId}", clientSessionIdToUse);
+                    }
+                    
+                    if (!string.IsNullOrEmpty(clientSessionIdToUse))
+                    {
+                        _logger.LogInformation("Using client session ID: {ClientSessionId}", clientSessionIdToUse);
+                    }
+                
+                    // Store using server session ID
+                    _documentPersistenceService.StoreDocument(sessionId, documentInfo);
+                    _logger.LogInformation("Document saved using server session ID: {SessionId}", sessionId);
+                    
+                    // Also store using client session ID if available
+                    if (!string.IsNullOrEmpty(clientSessionIdToUse))
+                    {
+                        _documentPersistenceService.StoreDocument(clientSessionIdToUse, documentInfo);
+                        _logger.LogInformation("Document also saved using client session ID: {ClientSessionId}", clientSessionIdToUse);
+                        
+                        // Store client session ID in session for future reference
+                        HttpContext.Session.SetString("ClientSessionId", clientSessionIdToUse);
+                    }
+                    else
+                    {
+                        _logger.LogWarning("No client session ID provided with file upload - document only stored with server session ID");
+                    }
+                    
+                    _logger.LogInformation("Document saved to persistence service: {FileName} with {ChunkCount} chunks", 
+                        documentInfo.FileName, documentInfo.Chunks.Count);
+                    
+                    return Ok(new { 
+                        response = response, 
+                        documentStored = true,
+                        documentInContext = true,
+                        documentInfo = new {
+                            fileName = documentInfo.FileName,
+                            chunkCount = documentInfo.Chunks.Count
+                        }
+                    });
+                }
             }
             catch (Exception ex)
             {

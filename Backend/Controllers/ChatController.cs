@@ -204,28 +204,53 @@ namespace Backend.Controllers
             
             try
             {
-                // Forward the request to the DocumentChatController (we don't have direct access to it)
-                // So we'll reconstruct the request manually
+                // Log detailed information about the incoming request
+                _logger.LogInformation("Legacy endpoint received request with: File={FileName}, FileSize={FileSize}, Message={MessageLength}, ClientSessionId={SessionId}",
+                    file?.FileName ?? "<no file>", 
+                    file?.Length ?? 0,
+                    message?.Length ?? 0, 
+                    clientSessionId ?? "<not provided>");
                 
-                // Create a new memory stream to copy the file
-                using var memoryStream = new MemoryStream();
-                if (file != null)
+                // Log request headers for debugging
+                foreach (var header in HttpContext.Request.Headers)
                 {
-                    await file.CopyToAsync(memoryStream);
-                    memoryStream.Position = 0;
+                    _logger.LogDebug("Request Header: {Key}={Value}", header.Key, header.Value);
                 }
 
-                // Create a new HttpContext with the path modified to the new endpoint
-                var originalPath = HttpContext.Request.Path;
-                var originalMethod = HttpContext.Request.Method;
+                // Check for missing parameters
+                if (file == null || file.Length == 0)
+                {
+                    _logger.LogError("Legacy endpoint missing file or file is empty");
+                    return BadRequest("No file uploaded or file is empty");
+                }
                 
-                _logger.LogInformation("Forwarding {File} with message from legacy endpoint to document-chat controller", 
-                    file?.FileName ?? "<no file>");
+                if (string.IsNullOrEmpty(message))
+                {
+                    _logger.LogError("Legacy endpoint missing message");
+                    return BadRequest("No message provided");
+                }
+                
+                // File validation
+                var extension = Path.GetExtension(file.FileName).ToLowerInvariant();
+                if (extension != ".pdf" && extension != ".docx" && extension != ".xlsx")
+                {
+                    _logger.LogError("Legacy endpoint received unsupported file format: {Extension}", extension);
+                    return BadRequest("Unsupported file format. Please upload a PDF, Word, or Excel file.");
+                }
+                
+                // Instead of trying to copy the file and forwarding, process it directly in this controller
+                // This eliminates potential issues with file transfer between controllers
+                _logger.LogInformation("Handling legacy endpoint request directly: File={FileName}", file.FileName);
 
-                // Create a document chat controller and call it directly
-                // We're using constructor injection to get services, so we need to get them from the controller's DI
+                // Get the DocumentChatController and its services via DI
                 var documentChatController = (DocumentChatController)HttpContext.RequestServices
                     .GetService(typeof(DocumentChatController));
+                
+                if (documentChatController == null)
+                {
+                    _logger.LogError("Failed to resolve DocumentChatController from DI");
+                    return StatusCode(500, new { error = "Server error resolving document controller" });
+                }
                 
                 // Set the controller's ControllerContext to use our current HttpContext
                 documentChatController.ControllerContext = new ControllerContext
@@ -233,17 +258,21 @@ namespace Backend.Controllers
                     HttpContext = HttpContext
                 };
                 
-                // Call the actual endpoint method
-                if (file != null)
+                try
                 {
-                    // Reset the stream position
-                    file.OpenReadStream().Position = 0;
-                    _logger.LogInformation("Forwarding to DocumentChatController with clientSessionId: {ClientSessionId}", clientSessionId);
+                    // Reset the stream position just to be safe
+                    var stream = file.OpenReadStream();
+                    stream.Position = 0;
+                    
+                    _logger.LogInformation("Forwarding to DocumentChatController with clientSessionId: {ClientSessionId}", 
+                        clientSessionId ?? "<not provided>");
+                    
                     return await documentChatController.ChatWithFile(file, message, clientSessionId);
                 }
-                else
+                catch (Exception ex)
                 {
-                    return BadRequest("No file provided");
+                    _logger.LogError(ex, "Error calling DocumentChatController.ChatWithFile");
+                    return StatusCode(500, new { error = $"Error processing file: {ex.Message}" });
                 }
             }
             catch (Exception ex)
