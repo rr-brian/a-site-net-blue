@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Server.IIS;
 using Backend.Services;
+using Backend.Services.Interfaces;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -48,27 +49,23 @@ builder.Services.AddTransient<IChatService>(sp =>
         sp.GetService<Azure.AI.OpenAI.OpenAIClient>(),
         sp.GetRequiredService<Backend.Configuration.OpenAIConfiguration>(),
         sp.GetRequiredService<Backend.Services.DocumentChunkingService>(),
-        (Backend.Services.DocumentContextService)sp.GetRequiredService<Backend.Services.IDocumentContextService>(),
-        (Backend.Services.ChatAnalysisService)sp.GetRequiredService<Backend.Services.IChatAnalysisService>(),
-        (Backend.Services.PromptEngineeringService)sp.GetRequiredService<Backend.Services.IPromptEngineeringService>(),
+        (Backend.Services.DocumentContextService)sp.GetRequiredService<IDocumentContextService>(),
+        (Backend.Services.ChatAnalysisService)sp.GetRequiredService<IChatAnalysisService>(),
+        (Backend.Services.PromptEngineeringService)sp.GetRequiredService<IPromptEngineeringService>(),
         sp.GetRequiredService<ILogger<Backend.Services.ChatService>>()
     ));
-builder.Services.AddTransient<Backend.Services.IChatService, Backend.Services.ChatService>();
-builder.Services.AddSingleton<Backend.Services.IDocumentPersistenceService, Backend.Services.DocumentPersistenceService>();
+builder.Services.AddTransient<IChatService, Backend.Services.ChatService>();
+builder.Services.AddSingleton<IDocumentPersistenceService, Backend.Services.DocumentPersistenceService>();
 builder.Services.AddSingleton<Backend.Services.SemanticChunker>();
 builder.Services.AddTransient<IDocumentProcessingService, Backend.Services.DocumentProcessingService>();
-builder.Services.AddTransient<Backend.Services.IDocumentProcessingService, Backend.Services.DocumentProcessingService>();
 builder.Services.AddTransient<Backend.Services.DocumentProcessingService>();
 builder.Services.AddSingleton<Backend.Services.DocumentChunkingService>();
 builder.Services.AddSingleton<Backend.Services.DocumentSearchService>();
 
 // Register specialized refactored services
-builder.Services.AddScoped<Backend.Services.IDocumentContextService, Backend.Services.DocumentContextService>();
-builder.Services.AddScoped<IDocumentContextService, Backend.Services.DocumentContextService>(); // Both registrations for compatibility
-builder.Services.AddScoped<Backend.Services.IChatAnalysisService, Backend.Services.ChatAnalysisService>();
-builder.Services.AddScoped<IChatAnalysisService, Backend.Services.ChatAnalysisService>(); // Both registrations for compatibility
-builder.Services.AddScoped<Backend.Services.IPromptEngineeringService, Backend.Services.PromptEngineeringService>();
-builder.Services.AddScoped<IPromptEngineeringService, Backend.Services.PromptEngineeringService>(); // Both registrations for compatibility
+builder.Services.AddScoped<IDocumentContextService, Backend.Services.DocumentContextService>();
+builder.Services.AddScoped<IChatAnalysisService, Backend.Services.ChatAnalysisService>();
+builder.Services.AddScoped<IPromptEngineeringService, Backend.Services.PromptEngineeringService>();
 
 // Register new maintainability services
 builder.Services.AddScoped<IFileValidationService, FileValidationService>();

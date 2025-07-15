@@ -10,6 +10,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using Backend.Models;
 using Backend.Services;
+using Backend.Services.Interfaces;
 using Backend.Configuration;
 
 namespace Backend.Controllers
