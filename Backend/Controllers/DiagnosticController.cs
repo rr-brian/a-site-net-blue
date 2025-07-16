@@ -245,6 +245,197 @@ namespace Backend.Controllers
             return Ok(result);
         }
         
+        [HttpGet("direct-azure-function-test")]
+        public async Task<IActionResult> DirectAzureFunctionTest()
+        {
+            var results = new List<object>();
+            
+            try
+            {
+                _logger.LogWarning("DIRECT TEST: Starting Azure Function direct test");
+                
+                // Get environment information
+                bool isAzureEnvironment = !string.IsNullOrEmpty(Environment.GetEnvironmentVariable("WEBSITE_SITE_NAME"));
+                results.Add(new { Step = "Environment Check", IsAzure = isAzureEnvironment, WebsiteName = Environment.GetEnvironmentVariable("WEBSITE_SITE_NAME") });
+                
+                // Check if service is available through DI
+                bool serviceAvailable = _azureFunctionService != null;
+                results.Add(new { Step = "Service Check", IsAvailable = serviceAvailable, ServiceType = serviceAvailable ? _azureFunctionService.GetType().FullName : "N/A" });
+                
+                // Get configuration values directly
+                var functionUrl = _configuration["AzureFunction:Url"] ?? Environment.GetEnvironmentVariable("AZURE_FUNCTION_URL");
+                var functionKey = _configuration["AzureFunction:Key"] ?? Environment.GetEnvironmentVariable("AZURE_FUNCTION_KEY");
+                
+                results.Add(new { 
+                    Step = "Config Check", 
+                    HasUrl = !string.IsNullOrEmpty(functionUrl),
+                    HasKey = !string.IsNullOrEmpty(functionKey),
+                    MaskedUrl = !string.IsNullOrEmpty(functionUrl) ? functionUrl.Replace("/api/", "/****/") : "<not configured>"
+                });
+                
+                if (!serviceAvailable)
+                {
+                    _logger.LogError("CRITICAL: Azure Function service is not available through DI!");
+                    results.Add(new { Step = "ERROR", Message = "Azure Function service is not available through DI" });
+                    return Ok(new { Success = false, Results = results });
+                }
+                
+                if (string.IsNullOrEmpty(functionUrl) || string.IsNullOrEmpty(functionKey))
+                {
+                    _logger.LogError("CRITICAL: Azure Function configuration missing - URL or Key not configured");
+                    results.Add(new { Step = "ERROR", Message = "Azure Function configuration missing" });
+                    return Ok(new { Success = false, Results = results });
+                }
+                
+                // Directly call Azure Function with test message
+                string testUserMessage = "This is a direct test from diagnostic controller";
+                string testAiResponse = "This is a simulated AI response for testing";
+                
+                try
+                {
+                    _logger.LogWarning("DIRECT TEST: Attempting direct call to Azure Function");
+                    results.Add(new { Step = "Direct Call", Status = "Started" });
+                    
+                    // Create HttpClient directly for testing
+                    using (var httpClient = new HttpClient())
+                    {
+                        // Create the payload with the same structure as AzureFunctionService
+                        var userId = _configuration["AzureFunction:UserId"] ?? 
+                            Environment.GetEnvironmentVariable("AZURE_FUNCTION_USER_ID") ?? 
+                            Guid.NewGuid().ToString();
+                            
+                        var userEmail = _configuration["AzureFunction:UserEmail"] ?? 
+                            Environment.GetEnvironmentVariable("AZURE_FUNCTION_USER_EMAIL") ?? 
+                            "test@example.com";
+                            
+                        var payload = new
+                        {
+                            userId,
+                            userEmail,
+                            chatType = "web",
+                            messages = new[]
+                            {
+                                new { role = "user", content = testUserMessage },
+                                new { role = "assistant", content = testAiResponse }
+                            },
+                            totalTokens = 0,
+                            metadata = new
+                            {
+                                source = "web-diagnostic",
+                                timestamp = DateTime.UtcNow.ToString("O"),
+                                testMode = true
+                            }
+                        };
+                        
+                        var jsonOptions = new System.Text.Json.JsonSerializerOptions { PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase };
+                        var jsonContent = System.Text.Json.JsonSerializer.Serialize(payload, jsonOptions);
+                        var content = new StringContent(jsonContent, System.Text.Encoding.UTF8, "application/json");
+                        
+                        results.Add(new { Step = "Request Preparation", PayloadLength = jsonContent.Length });
+                        _logger.LogInformation("DIRECT TEST: Prepared payload: {Payload}", jsonContent);
+                        
+                        // Add the API key to the URL for direct testing
+                        var requestUri = functionUrl;
+                        if (!string.IsNullOrEmpty(functionKey))
+                        {
+                            requestUri += (requestUri.Contains("?") ? "&" : "?") + "code=" + functionKey;
+                        }
+                        
+                        // Set 30 second timeout
+                        httpClient.Timeout = TimeSpan.FromSeconds(30);
+                        
+                        // Make the request with explicit timeout and error handling
+                        try
+                        {   
+                            _logger.LogWarning("DIRECT TEST: Sending HTTP request to {FunctionUrl}", 
+                                requestUri.Replace(functionKey, "[REDACTED]"));
+                                
+                            var response = await httpClient.PostAsync(requestUri, content);
+                            var responseContent = await response.Content.ReadAsStringAsync();
+                            
+                            results.Add(new { 
+                                Step = "HTTP Response", 
+                                StatusCode = (int)response.StatusCode,
+                                Status = response.StatusCode.ToString(),
+                                ContentLength = responseContent.Length,
+                                Content = responseContent.Length > 500 ? responseContent.Substring(0, 500) + "..." : responseContent
+                            });
+                            
+                            _logger.LogInformation("DIRECT TEST: Received response: {Response}", responseContent);
+                            
+                            if (response.IsSuccessStatusCode)
+                            {
+                                _logger.LogWarning("DIRECT TEST: Azure Function call successful!");
+                                // Try to parse the response for debugging
+                                try
+                                {
+                                    var responseObj = System.Text.Json.JsonSerializer.Deserialize<System.Text.Json.JsonElement>(responseContent);
+                                    if (responseObj.TryGetProperty("conversationId", out var conversationId))
+                                    {
+                                        _logger.LogWarning("DIRECT TEST: Received conversation ID: {ConversationId}", conversationId.ToString());
+                                        results.Add(new { Step = "Response Parse", ConversationId = conversationId.ToString() });
+                                    }
+                                }
+                                catch (Exception parseEx)
+                                {
+                                    _logger.LogError(parseEx, "DIRECT TEST: Error parsing response JSON");
+                                    results.Add(new { Step = "Response Parse Error", Error = parseEx.Message });
+                                }
+                            }
+                            else
+                            {
+                                _logger.LogError("DIRECT TEST: Azure Function returned error status code: {StatusCode}", response.StatusCode);
+                            }
+                        }
+                        catch (TaskCanceledException tcEx)
+                        {
+                            _logger.LogError(tcEx, "DIRECT TEST: Request timed out after {Timeout} seconds", httpClient.Timeout.TotalSeconds);
+                            results.Add(new { Step = "Timeout Error", Error = tcEx.Message, Timeout = httpClient.Timeout.TotalSeconds });
+                        }
+                        catch (HttpRequestException httpEx)
+                        {
+                            _logger.LogError(httpEx, "DIRECT TEST: HTTP request error: {Message}", httpEx.Message);
+                            results.Add(new { Step = "HTTP Error", Error = httpEx.Message, InnerError = httpEx.InnerException?.Message });
+                        }
+                        catch (Exception reqEx)
+                        {
+                            _logger.LogError(reqEx, "DIRECT TEST: Unexpected error during HTTP request: {Message}", reqEx.Message);
+                            results.Add(new { Step = "Request Error", Error = reqEx.Message, Type = reqEx.GetType().Name });
+                        }
+                    }
+                    
+                    // Now test using the injected service
+                    _logger.LogWarning("DIRECT TEST: Testing injected Azure Function service");
+                    results.Add(new { Step = "Injected Service Test", Status = "Started" });
+                    
+                    try
+                    {
+                        await _azureFunctionService.SaveConversationAsync("Test from injected service", "Test response for injected service");
+                        _logger.LogWarning("DIRECT TEST: Injected service call completed successfully");
+                        results.Add(new { Step = "Injected Service Test", Status = "Success" });
+                    }
+                    catch (Exception svcEx)
+                    {
+                        _logger.LogError(svcEx, "DIRECT TEST: Injected service call failed: {Message}", svcEx.Message);
+                        results.Add(new { Step = "Injected Service Error", Error = svcEx.Message, Type = svcEx.GetType().Name });
+                    }
+                }
+                catch (Exception callEx)
+                {
+                    _logger.LogError(callEx, "DIRECT TEST: Unexpected error in direct test: {Message}", callEx.Message);
+                    results.Add(new { Step = "Overall Error", Error = callEx.Message, Type = callEx.GetType().Name });
+                }
+                
+                return Ok(new { Success = true, Results = results });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "DIRECT TEST: Critical error in test endpoint: {Message}", ex.Message);
+                results.Add(new { Step = "Critical Error", Error = ex.Message, Type = ex.GetType().Name, StackTrace = ex.StackTrace });
+                return StatusCode(500, new { Success = false, Results = results });
+            }
+        }
+
         [HttpGet("verify-azure-function-service")]
         public IActionResult VerifyAzureFunctionService()
         {
