@@ -245,6 +245,55 @@ namespace Backend.Controllers
             return Ok(result);
         }
         
+        [HttpGet("verify-azure-function-service")]
+        public IActionResult VerifyAzureFunctionService()
+        {
+            try
+            {
+                bool isAzureEnvironment = !string.IsNullOrEmpty(Environment.GetEnvironmentVariable("WEBSITE_SITE_NAME"));
+                _logger.LogWarning("VERIFICATION: Running in {Environment} environment", isAzureEnvironment ? "Azure" : "Local");
+                
+                // Check if service is available
+                bool serviceAvailable = _azureFunctionService != null;
+                _logger.LogWarning("VERIFICATION: Azure Function service available: {Available}", serviceAvailable);
+                
+                // Get Azure Function configuration directly
+                var functionUrl = _configuration["AzureFunction:Url"] ?? Environment.GetEnvironmentVariable("AZURE_FUNCTION_URL");
+                var functionKey = _configuration["AzureFunction:Key"] ?? Environment.GetEnvironmentVariable("AZURE_FUNCTION_KEY");
+                var userId = _configuration["AzureFunction:UserId"] ?? Environment.GetEnvironmentVariable("AZURE_FUNCTION_USER_ID");
+                var userEmail = _configuration["AzureFunction:UserEmail"] ?? Environment.GetEnvironmentVariable("AZURE_FUNCTION_USER_EMAIL");
+                
+                var configStatus = new
+                {
+                    InAzureEnvironment = isAzureEnvironment,
+                    ServiceAvailable = serviceAvailable,
+                    ServiceType = serviceAvailable ? _azureFunctionService.GetType().FullName : "N/A",
+                    ConfigFound = new
+                    {
+                        UrlConfigured = !string.IsNullOrEmpty(functionUrl),
+                        KeyConfigured = !string.IsNullOrEmpty(functionKey),
+                        UserIdConfigured = !string.IsNullOrEmpty(userId),
+                        UserEmailConfigured = !string.IsNullOrEmpty(userEmail)
+                    },
+                    ConfigSources = new
+                    {
+                        UrlFromEnvVar = !string.IsNullOrEmpty(Environment.GetEnvironmentVariable("AZURE_FUNCTION_URL")),
+                        UrlFromAppSettings = !string.IsNullOrEmpty(_configuration["AzureFunction:Url"]),
+                        KeyFromEnvVar = !string.IsNullOrEmpty(Environment.GetEnvironmentVariable("AZURE_FUNCTION_KEY")),
+                        KeyFromAppSettings = !string.IsNullOrEmpty(_configuration["AzureFunction:Key"])
+                    },
+                    MaskedUrl = !string.IsNullOrEmpty(functionUrl) ? functionUrl.Replace("/api/", "/****/") : "<not configured>"
+                };
+                
+                return Ok(configStatus);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error verifying Azure Function service");
+                return StatusCode(500, new { Error = ex.Message, StackTrace = ex.StackTrace });
+            }
+        }
+
         [HttpPost("test-azure-function")]
         public async Task<IActionResult> TestAzureFunction()
         {
