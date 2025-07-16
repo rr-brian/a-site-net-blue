@@ -224,9 +224,31 @@ dotnet run --urls "http://localhost:5239"
 - The conversationId field is intentionally omitted from the request to trigger the "create new" flow
 - The Azure Function returns the generated conversationId in the response
 - The function connects to SQL Server database `rts-sql-main` on server `rts-sql-main.database.windows.net`
+- Session state management:
+  - Document context is automatically cleared when the user closes the application
+  - This prevents document context from persisting between user sessions unintentionally
 - Diagnostic endpoints are available at:
   - `/api/diagnostic/azure-function-config`: Shows configuration status
   - `/api/diagnostic/test-azure-function`: Tests the Azure Function integration
+
+#### Troubleshooting Azure Function Integration
+
+If conversations aren't being saved to the database, check the following:
+
+1. **Configuration values**: Ensure these environment variables are set in both local and Azure environments:
+   - `AZURE_FUNCTION_URL`: The Azure Function endpoint URL
+   - `AZURE_FUNCTION_KEY`: The Function authentication key 
+   - `AZURE_FUNCTION_USER_ID`: (Optional) User ID to associate with conversations
+   - `AZURE_FUNCTION_USER_EMAIL`: (Optional) User email to associate with conversations
+
+2. **Deployment issues**: Check application logs for `AZURE FUNCTION DEBUG` and `AZURE FUNCTION CONFIG` messages
+   - These enhanced logs show if configuration values are missing in the Azure environment
+   - They also provide details about any exceptions occurring during the conversation save process
+
+3. **Function behavior**: Remember that the Azure Function has two paths:
+   - When no conversationId is provided, it creates a new record
+   - When conversationId is provided, it attempts to update an existing record
+   - We intentionally omit conversationId to always create new records
 
 ## Document Processing Configuration
 

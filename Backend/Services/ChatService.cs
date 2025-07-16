@@ -21,6 +21,7 @@ namespace Backend.Services
         private readonly Interfaces.IDocumentContextService _documentContextService;
         private readonly Interfaces.IChatAnalysisService _chatAnalysisService;
         private readonly Interfaces.IPromptEngineeringService _promptEngineeringService;
+        private readonly Interfaces.IAzureFunctionService _azureFunctionService;
         private readonly ILogger<ChatService> _logger;
         
         // Default retry settings for API call failures
@@ -34,7 +35,8 @@ namespace Backend.Services
             Interfaces.IDocumentContextService documentContextService,
             Interfaces.IChatAnalysisService chatAnalysisService,
             Interfaces.IPromptEngineeringService promptEngineeringService,
-            ILogger<ChatService> logger)
+            ILogger<ChatService> logger,
+            Interfaces.IAzureFunctionService azureFunctionService = null)
         {
             _openAIClient = openAIClient;
             _openAIConfig = openAIConfig;
@@ -42,6 +44,7 @@ namespace Backend.Services
             _documentContextService = documentContextService;
             _chatAnalysisService = chatAnalysisService;
             _promptEngineeringService = promptEngineeringService;
+            _azureFunctionService = azureFunctionService;
             _logger = logger;
         }
         
@@ -69,11 +72,27 @@ namespace Backend.Services
                 _logger.LogWarning("OpenAI IsConfigured: {IsConfigured}", _openAIConfig.IsConfigured);
                 
                 // Get deployment name from configuration
-                var deploymentName = _openAIConfig.DeploymentName ?? "gpt-35-turbo";
+                var deploymentName = _openAIConfig.DeploymentName ?? "gpt-4.1";  // This must match the deployment in Azure OpenAI
                 
-                _logger.LogWarning("Using deployment name: {DeploymentName}", deploymentName);
+                // Add extensive logging of all parameters
+                _logger.LogWarning("API CALL DETAILS - Endpoint: {Endpoint}", _openAIConfig.Endpoint);
+                _logger.LogWarning("API CALL DETAILS - DeploymentName: {DeploymentName}", deploymentName);
+                var apiVersion = Environment.GetEnvironmentVariable("OPENAI_API_VERSION");
+                _logger.LogWarning("API CALL DETAILS - API Version: {ApiVersion}", apiVersion ?? "Not set in env vars");
+                
+                _logger.LogInformation("Using deployment name: {DeploymentName}", deploymentName);
                 _logger.LogInformation("Processing chat request with message: {MessageLength} chars, Document: {HasDocument}", 
                     message?.Length ?? 0, documentInfo != null);
+                
+                // Log detailed API call parameters
+                _logger.LogWarning("DETAILED OPENAI DIAGNOSTICS:");
+                _logger.LogWarning("1. Using OpenAIClient of type: {ClientType}", _openAIClient.GetType().FullName);
+                _logger.LogWarning("2. Endpoint URL being used: {EndpointUrl}", _openAIConfig.Endpoint);
+                _logger.LogWarning("3. Deployment name being used: {DeploymentName}", deploymentName);
+                _logger.LogWarning("4. Environment variables:");
+                _logger.LogWarning("   OPENAI_API_KEY set: {IsSet}", !string.IsNullOrEmpty(Environment.GetEnvironmentVariable("OPENAI_API_KEY")));
+                _logger.LogWarning("   OPENAI_ENDPOINT set: {IsSet}", !string.IsNullOrEmpty(Environment.GetEnvironmentVariable("OPENAI_ENDPOINT")));
+                _logger.LogWarning("   OPENAI_DEPLOYMENT_NAME set: {IsSet}", !string.IsNullOrEmpty(Environment.GetEnvironmentVariable("OPENAI_DEPLOYMENT_NAME")));
                 
                 // Setup chat completion options
                 var chatCompletionsOptions = new ChatCompletionsOptions
@@ -191,6 +210,62 @@ namespace Backend.Services
                 {
                     string responseText = response.Value.Choices[0].Message.Content;
                     _logger.LogInformation("Received response from OpenAI API: {Length} chars", responseText?.Length ?? 0);
+                    
+                    // Save conversation to Azure Function if service is available
+                    if (_azureFunctionService != null)
+                    {
+                        try
+                        {
+                            // Log whether this is Azure environment or local
+                            bool isAzureEnvironment = !string.IsNullOrEmpty(Environment.GetEnvironmentVariable("WEBSITE_SITE_NAME"));
+                            _logger.LogWarning("AZURE FUNCTION DEBUG: Running in {Environment} environment", 
+                                isAzureEnvironment ? "Azure" : "Local");
+                                
+                            // Log all Azure Function configuration values (with sensitive data masked)
+                            var functionUrl = Environment.GetEnvironmentVariable("AZURE_FUNCTION_URL") ?? 
+                                "[NOT SET IN ENVIRONMENT]";
+                            var hasFunctionKey = !string.IsNullOrEmpty(Environment.GetEnvironmentVariable("AZURE_FUNCTION_KEY"));
+                            var hasUserId = !string.IsNullOrEmpty(Environment.GetEnvironmentVariable("AZURE_FUNCTION_USER_ID"));
+                            var hasUserEmail = !string.IsNullOrEmpty(Environment.GetEnvironmentVariable("AZURE_FUNCTION_USER_EMAIL"));
+                            
+                            _logger.LogWarning("AZURE FUNCTION CONFIG: URL={Url}, HasKey={HasKey}, HasUserId={HasUserId}, HasUserEmail={HasUserEmail}",
+                                functionUrl.Replace("/api/", "/***/"), // Mask part of the URL
+                                hasFunctionKey,
+                                hasUserId,
+                                hasUserEmail);
+                                
+                            // Fire and forget - don't await, don't block response
+                            _logger.LogInformation("Saving conversation to Azure Function");
+                            _ = _azureFunctionService.SaveConversationAsync(message, responseText)
+                                .ContinueWith(task => 
+                                {
+                                    if (task.IsFaulted)
+                                    {
+                                        _logger.LogError(task.Exception, "Failed to save conversation to Azure Function");
+                                        // Log more details about inner exceptions if available
+                                        if (task.Exception?.InnerException != null)
+                                        {
+                                            _logger.LogError("Inner exception: {Type}, Message: {Message}", 
+                                                task.Exception.InnerException.GetType().Name,
+                                                task.Exception.InnerException.Message);
+                                        }
+                                    }
+                                    else
+                                        _logger.LogInformation("Successfully saved conversation to Azure Function");
+                                });
+                        }
+                        catch (Exception ex)
+                        {
+                            // Log but don't fail the request if conversation saving fails
+                            _logger.LogError(ex, "Error initiating conversation save to Azure Function: {Message}, Type: {Type}", 
+                                ex.Message, ex.GetType().Name);
+                        }
+                    }
+                    else
+                    {
+                        _logger.LogWarning("Azure Function service is NULL - conversation will not be saved");
+                    }
+                    
                     return responseText;
                 }
                 
