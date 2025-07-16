@@ -234,25 +234,52 @@ namespace Backend.Services
                                 hasUserId,
                                 hasUserEmail);
                                 
-                            // Fire and forget - don't await, don't block response
+                            // Change to an explicit async method that will be awaited internally
+                            // to ensure it runs to completion even during AppDomain shutdown
                             _logger.LogInformation("Saving conversation to Azure Function");
-                            _ = _azureFunctionService.SaveConversationAsync(message, responseText)
-                                .ContinueWith(task => 
+                            
+                            // Create a separate task to handle the async operation
+                            var saveTask = Task.Run(async () => 
+                            {
+                                try
                                 {
-                                    if (task.IsFaulted)
+                                    // Force synchronous context to ensure completion
+                                    await Task.Yield();
+                                    
+                                    // Create a unique ID for this save operation for tracking
+                                    var saveId = Guid.NewGuid().ToString().Substring(0, 8);
+                                    _logger.LogWarning("AZURE_FUNCTION_SAVE_START [{SaveId}]: Starting conversation save", saveId);
+                                    
+                                    // Use a custom timeout to prevent hanging
+                                    using (var cts = new CancellationTokenSource(TimeSpan.FromSeconds(30)))
                                     {
-                                        _logger.LogError(task.Exception, "Failed to save conversation to Azure Function");
-                                        // Log more details about inner exceptions if available
-                                        if (task.Exception?.InnerException != null)
+                                        try
                                         {
-                                            _logger.LogError("Inner exception: {Type}, Message: {Message}", 
-                                                task.Exception.InnerException.GetType().Name,
-                                                task.Exception.InnerException.Message);
+                                            await _azureFunctionService.SaveConversationAsync(message, responseText)
+                                                .WaitAsync(cts.Token)
+                                                .ConfigureAwait(false);
+                                                
+                                            _logger.LogWarning("AZURE_FUNCTION_SAVE_SUCCESS [{SaveId}]: Successfully saved conversation", saveId);
+                                        }
+                                        catch (TaskCanceledException)
+                                        {
+                                            _logger.LogError("AZURE_FUNCTION_SAVE_TIMEOUT [{SaveId}]: Azure Function call timed out after 30 seconds", saveId);
+                                        }
+                                        catch (Exception innerEx)
+                                        {
+                                            _logger.LogError(innerEx, "AZURE_FUNCTION_SAVE_ERROR [{SaveId}]: Inner exception: {Type}, Message: {Message}", 
+                                                saveId, innerEx.GetType().Name, innerEx.Message);
                                         }
                                     }
-                                    else
-                                        _logger.LogInformation("Successfully saved conversation to Azure Function");
-                                });
+                                }
+                                catch (Exception outerEx)
+                                {
+                                    _logger.LogError(outerEx, "Failed to save conversation to Azure Function: {Message}", outerEx.Message);
+                                }
+                            });
+                            
+                            // Ensure the background task continues but doesn't block response
+                            _ = saveTask;
                         }
                         catch (Exception ex)
                         {
