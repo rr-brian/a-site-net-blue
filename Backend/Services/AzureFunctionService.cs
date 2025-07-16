@@ -29,8 +29,8 @@ namespace Backend.Services
         {
             try
             {
-                // Generate a unique conversation ID for each message
-                var conversationId = Guid.NewGuid().ToString("D");
+                // NOTE: We're intentionally NOT generating a conversation ID here
+                // The Azure Function will generate one for us when creating a new record
                 
                 // Get Azure Function configuration
                 var functionUrl = _configuration["AzureFunction:Url"] ?? 
@@ -86,18 +86,20 @@ namespace Backend.Services
                     userEmail = $"user-{DateTime.UtcNow.Ticks}@realtyts.com";
                 }
                 
+                // Create the conversation payload - IMPORTANT: Omit conversationId to always create new records
+                // The Azure Function will generate a new UUID and return it
                 var conversation = new
                 {
-                    conversationId = conversationId,
-                    userId = userId,
-                    userEmail = userEmail,
+                    // conversationId is intentionally omitted to trigger the "create new" flow in the Azure Function
+                    userId,
+                    userEmail,
                     chatType = "web",
                     messages = messages,
                     totalTokens = 0,
                     metadata = new
                     {
                         source = "web",
-                        timestamp = DateTime.UtcNow.ToString("o")
+                        timestamp = DateTime.UtcNow.ToString("O")
                     }
                 };
 
@@ -107,22 +109,21 @@ namespace Backend.Services
                 {
                     requestUri = requestUri + (requestUri.Contains("?") ? "&" : "?") + "code=" + functionKey;
                 }
-
-                _logger.LogInformation("Sending conversation to Azure Function at: {Uri}", 
-                    requestUri.Replace(functionKey ?? "", "[REDACTED]"));
+                // Log the constructed URL with the key redacted for security
+                _logger.LogInformation("Sending conversation to Azure Function at: {FunctionUrl}",
+                    functionUrl.Replace(functionKey, "[REDACTED]"));
+                    
+                // Log request payload for debugging (only in Development environment)
+                var requestJson = JsonSerializer.Serialize(conversation);
+                _logger.LogInformation("Request payload: {RequestJson}", requestJson);
                 
-                // Serialize the conversation to JSON
-                var jsonOptions = new JsonSerializerOptions { WriteIndented = true };
-                var requestJson = JsonSerializer.Serialize(conversation, jsonOptions);
-                _logger.LogInformation("Request payload: {Payload}", requestJson);
-                
-                // Create request with the properly formatted URL
+                // Create the HTTP request
                 var request = new HttpRequestMessage(HttpMethod.Post, requestUri);
-                request.Content = new StringContent(requestJson, System.Text.Encoding.UTF8, "application/json");
+                request.Content = new StringContent(requestJson, Encoding.UTF8, "application/json");
                 
-                // Log detailed request information
-                _logger.LogInformation("Sending conversation with ID: {ConversationId}, UserId: {UserId}, UserEmail: {UserEmail}",
-                    conversationId, userId, userEmail);
+                // Log what we're sending for diagnostic purposes
+                _logger.LogInformation("Sending conversation with UserId: {UserId}, UserEmail: {UserEmail}",
+                    userId, userEmail);
                 
                 // Send the request with detailed error handling
                 try
@@ -130,21 +131,28 @@ namespace Backend.Services
                     var response = await _httpClient.SendAsync(request);
                     
                     // Log response status with more context
-                    _logger.LogInformation("Azure Function response status: {StatusCode} for conversation ID: {ConversationId}", 
-                        response.StatusCode, conversationId);
+                    _logger.LogInformation("Azure Function response status: {StatusCode}", response.StatusCode);
                     
-                    if (!response.IsSuccessStatusCode)
+                    // Always read the response content regardless of status code
+                    var responseContent = await response.Content.ReadAsStringAsync();
+                    
+                    if (response.IsSuccessStatusCode)
                     {
-                        var errorContent = await response.Content.ReadAsStringAsync();
+                        // Try to parse the response to get the conversation ID
+                        string newConversationId = "unknown";
+                        try {
+                            var responseJson = JsonDocument.Parse(responseContent);
+                            if (responseJson.RootElement.TryGetProperty("conversationId", out var idElement)) {
+                                newConversationId = idElement.GetString() ?? "unknown";
+                            }
+                        } catch {}
                         
-                        // Log detailed error information including headers and request details
-                        _logger.LogError("Azure Function call failed. Status: {StatusCode}, URL: {Url}, ConversationId: {ConversationId}, Error: {Error}", 
+                        _logger.LogInformation("Azure Function call succeeded. Status: {StatusCode}, New ConversationId: {ConversationId}, Response: {Response}", 
                             response.StatusCode, 
-                            functionUrl.Replace(functionKey, "[REDACTED]"),
-                            conversationId,
-                            !string.IsNullOrEmpty(errorContent) ? errorContent : "No error content returned");
+                            newConversationId,
+                            responseContent);
                             
-                        // Log response headers for debugging
+                        // Log success details including headers
                         foreach (var header in response.Headers)
                         {
                             _logger.LogDebug("Response header: {Key} = {Value}", header.Key, string.Join(", ", header.Value));
@@ -152,11 +160,17 @@ namespace Backend.Services
                     }
                     else
                     {
-                        var successContent = await response.Content.ReadAsStringAsync();
-                        _logger.LogInformation("Conversation saved successfully. Response: {Response}", successContent);
-                        
-                        // Log success details
-                        _logger.LogInformation("Successfully saved conversation with ID: {ConversationId}", conversationId);
+                        // Log detailed error information including headers and request details
+                        _logger.LogError("Azure Function call failed. Status: {StatusCode}, URL: {Url}, Error: {Error}", 
+                            response.StatusCode, 
+                            functionUrl.Replace(functionKey, "[REDACTED]"),
+                            !string.IsNullOrEmpty(responseContent) ? responseContent : "No error content returned");
+                            
+                        // Log response headers for debugging
+                        foreach (var header in response.Headers)
+                        {
+                            _logger.LogDebug("Response header: {Key} = {Value}", header.Key, string.Join(", ", header.Value));
+                        }
                     }
                 }
                 catch (HttpRequestException httpEx)

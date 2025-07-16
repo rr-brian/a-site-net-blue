@@ -165,6 +165,69 @@ dotnet run --urls "http://localhost:5239"
 - Local debugging is configured through Visual Studio or dotnet CLI
 - Unit tests cover core functionality
 
+### Azure OpenAI Integration
+
+#### Configuration and Deployment Issues
+
+- **Fixed Deployment Name Issue**: Resolved 404 DeploymentNotFound errors by ensuring the application consistently uses "gpt-4.1" deployment name
+  - Created a DiagnosticController with endpoints to view OpenAI configuration and test deployments
+  - Diagnostic testing revealed only "gpt-4.1" deployment exists in the Azure OpenAI resource
+  - Modified OpenAIConfiguration.cs to override any incorrect deployment names with "gpt-4.1"
+  - Updated ChatService.cs to use the correct deployment name
+  - Added environment variable validation to ensure OPENAI_DEPLOYMENT_NAME (if set) contains valid value
+
+#### API Version Information
+
+- Azure OpenAI API version: 2025-01-01-preview
+- Client type: Azure.AI.OpenAI.OpenAIClient
+- Endpoint: https://generalsearchai.openai.azure.com/
+
+### Azure Function Integration
+
+#### Configuration
+
+- Successfully integrated Azure Function for saving conversations
+- Endpoint: https://fn-conversationsave.azurewebsites.net/api/conversations/update
+- Required environment variables or appsettings.json configuration:
+  - `AzureFunction:Url` or `AZURE_FUNCTION_URL`: The Azure Function endpoint URL
+  - `AzureFunction:Key` or `AZURE_FUNCTION_KEY`: The Azure Function access key
+  - `AzureFunction:UserId` or `AZURE_FUNCTION_USER_ID`: Optional user ID (auto-generated if not provided)
+  - `AzureFunction:UserEmail` or `AZURE_FUNCTION_USER_EMAIL`: Optional user email (auto-generated if not provided)
+
+#### Implementation Details
+
+- Added IAzureFunctionService interface and AzureFunctionService implementation
+- ChatService asynchronously calls SaveConversationAsync after successful chat completions
+- Implemented fire-and-forget pattern with proper error handling to prevent affecting main application flow
+- Added diagnostic endpoints to test Azure Function configuration and connectivity
+- Conversation data format:
+  ```json
+  {
+    "userId": "string",
+    "userEmail": "string",
+    "chatType": "web",
+    "messages": [
+      { "role": "user", "content": "string" },
+      { "role": "assistant", "content": "string" }
+    ],
+    "totalTokens": 0,
+    "metadata": {
+      "source": "web",
+      "timestamp": "2025-07-16T20:22:35.7479914Z"
+    }
+  }
+  ```
+
+#### Important Notes
+
+- The Azure Function is designed to create a new record for each conversation if no conversationId is provided
+- The conversationId field is intentionally omitted from the request to trigger the "create new" flow
+- The Azure Function returns the generated conversationId in the response
+- The function connects to SQL Server database `rts-sql-main` on server `rts-sql-main.database.windows.net`
+- Diagnostic endpoints are available at:
+  - `/api/diagnostic/azure-function-config`: Shows configuration status
+  - `/api/diagnostic/test-azure-function`: Tests the Azure Function integration
+
 ## Document Processing Configuration
 
 ### Token Management
@@ -198,6 +261,96 @@ The application is configured to handle large documents with the following token
 1. **Command Chaining**: 
    - Unix/Bash uses: `command1 && command2`
    - PowerShell uses: `command1; command2` or `command1; if ($?) { command2 }`
+
+---
+
+# Project Snapshot - July 2025
+
+## Recent Fixes and Improvements
+
+### Dependency Injection Fixes
+
+1. **Interface Implementation**
+   - Fixed `EnhanceChunksWithMetadata` method in `DocumentChunkingService` - changed from `private` to `public` to properly implement `IDocumentChunkingService`
+   - Correctly implemented all service interfaces to support proper dependency injection
+   - Ensured ChatService injects `IDocumentChunkingService` interface instead of the concrete class
+
+2. **Service Registration**
+   - All services are properly registered with their interfaces in `Program.cs`
+   - Constructor injection consistently uses interfaces rather than concrete implementations
+   - Fixed DI chain to prevent `System.InvalidOperationException` during service resolution
+
+3. **Interface Hierarchy**
+   - Implemented missing interfaces:
+     - `IDocumentSearchService`
+     - `IDocumentChunkingService`  
+     - `ISemanticChunker`
+     - `IOpenAIService`
+     - `IAzureFunctionService`
+
+### Architecture Clean-up
+
+1. **File Organization**
+   - Removed duplicate `ChatController.cs.new` file to prevent build conflicts
+   - Ensured all interfaces are in the `Backend.Services.Interfaces` namespace
+   - Maintained consistent implementation of interfaces across service classes
+
+2. **Front-end Improvements**
+   - Added cache busting parameters to JavaScript modules to prevent stale code issues
+   - Fixed import/export path issues in modular JavaScript
+   - Ensured proper document status indicator functionality
+
+## Troubleshooting Common Issues
+
+### 500 Internal Server Errors
+
+- Check dependency injection configuration in `Program.cs`
+- Verify all concrete implementations properly implement their interfaces
+- Confirm all service constructor parameters use interfaces instead of concrete types
+- Review Azure App Service logs for detailed error messages
+
+### Document Processing Failures
+
+- Verify `EnhanceChunksWithMetadata` and other critical methods are public
+- Check if file size exceeds limits in the Azure App Service
+- Review document chunking parameters for very large documents
+
+### Azure OpenAI Integration
+
+- Ensure these environment variables are correctly set in Azure App Service:
+  - `OPENAI_API_KEY`
+  - `OPENAI_ENDPOINT`
+  - `OPENAI_DEPLOYMENT_NAME` 
+  - `OPENAI_API_VERSION`
+
+### Session Handling
+
+- The system uses both server-side session IDs and client-provided session IDs for document context
+- Client session IDs are stored in cookies and persisted between page reloads
+- Document context is tied to these session identifiers
+
+## Key API Endpoints
+
+- **Basic Chat**: `/api/chat` (POST)
+- **Document Upload & Chat**: `/api/document-chat/with-file` (POST)
+- **Clear Document Context**: `/api/document-chat/clear-context` (POST)
+- **Configuration**: `/api/config` (GET)
+- **OpenAI Connection Test**: `/api/config/test-openai` (GET)
+- **System Diagnostic Info**: `/api/config/diagnostic` (GET)
+
+## Deployment Notes
+
+Build errors will occur if:
+1. Interface methods are implemented with incorrect visibility (private/internal vs. public)
+2. Service injections use concrete classes instead of interfaces
+3. Required services are not properly registered in `Program.cs`
+
+Runtime errors (500) will occur if:
+1. DI container cannot resolve the complete chain of dependencies
+2. Environment variables for Azure OpenAI are missing or incorrect
+3. File processing exceeds memory or timeout limits
+
+*Note: Always commit interface changes and dependency injection fixes together to prevent build and runtime errors during deployment.*
 
 2. **Directory Navigation**: 
    - Use `cd` or `Set-Location` with separate commands
