@@ -385,3 +385,110 @@ Runtime errors (500) will occur if:
 ## Document Upload Debugging
 
 We're investigating 400 Bad Request errors when uploading documents to both the new endpoint `/api/document-chat/with-file` and the legacy fallback endpoint `/api/chat/with-file`. Enhanced logging has been added to help diagnose these issues.
+
+# Azure Function Conversation Persistence - July 2025
+
+## Implementation Status
+
+The application now successfully persists chat conversations to the database via an Azure Function. Each chat interaction creates a new conversation record in the database, with proper error handling and logging throughout the process.
+
+## Configuration Requirements
+
+### Environment Variables
+
+The following environment variables must be correctly configured in the Azure App Service:
+
+- `AZURE_FUNCTION_URL`: The complete URL to the Azure Function endpoint (e.g., `https://fn-conversationsave.azurewebsites.net/api/conversations/update`)
+- `AZURE_FUNCTION_KEY`: The function key required for authentication
+- `AZURE_FUNCTION_USER_ID`: (Optional) User ID to associate with conversations
+- `AZURE_FUNCTION_USER_EMAIL`: (Optional) User email to associate with conversations
+
+### Alternative Configuration
+
+These values can also be specified in `appsettings.json` using the following structure:
+
+```json
+{
+  "AzureFunction": {
+    "Url": "https://fn-conversationsave.azurewebsites.net/api/conversations/update",
+    "Key": "your-function-key",
+    "UserId": "optional-user-id",
+    "UserEmail": "optional-user-email"
+  }
+}
+```
+
+> **Note:** Environment variables take precedence over `appsettings.json` values.
+
+## Implementation Details
+
+### Service Architecture
+
+1. **IAzureFunctionService Interface**: Defines the contract for saving conversations
+2. **AzureFunctionService Implementation**: Handles the actual HTTP calls to the Azure Function
+3. **ChatService Integration**: Calls the Azure Function service after successful chat completions
+
+### Key Implementation Features
+
+- **Fire-and-forget Pattern**: Conversations are saved asynchronously without blocking the response
+- **Enhanced Logging**: Detailed logging of environment detection, configuration, and HTTP requests/responses
+- **Robust Error Handling**: Multi-level try-catch blocks with inner exception details
+- **Configuration Fallbacks**: Multiple sources for configuration with proper precedence
+- **Automatic User Info**: Auto-generates user ID and email if not provided
+- **New Record Creation**: Intentionally omits conversationId to always create new records
+- **Transaction Tracking**: Unique IDs for each save operation for correlation in logs
+
+## Diagnostic Tools
+
+### Diagnostic Endpoints
+
+1. **Verify Azure Function Configuration**:
+   ```
+   GET /api/diagnostic/verify-azure-function-service
+   ```
+   Shows current configuration status, environment detection, and values
+
+2. **Direct Azure Function Testing**:
+   ```
+   GET /api/diagnostic/direct-azure-function-test
+   ```
+   Performs a complete test of the Azure Function integration with detailed step-by-step results
+
+### Log Messages to Monitor
+
+- `AZURE_FUNCTION_SAVE_START [id]`: Indicates a save operation has begun
+- `AZURE_FUNCTION_SAVE_SUCCESS [id]`: Indicates successful completion
+- `AZURE_FUNCTION_SAVE_ERROR [id]`: Shows detailed error information
+- `AZURE_FUNCTION_SAVE_TIMEOUT [id]`: Indicates a timeout occurred (after 30 seconds)
+- `CONFIGURATION DEBUG`: Detailed configuration detection and resolution information
+
+## Troubleshooting Guide
+
+### Common Issues
+
+1. **Configuration Missing**
+   - **Symptom**: `Azure Function URL not configured` in logs
+   - **Solution**: Verify environment variables in Azure App Service Configuration
+
+2. **Permission Issues**
+   - **Symptom**: 401/403 responses from Azure Function
+   - **Solution**: Verify function key is correct and function app allows the calls
+
+3. **Network Issues**
+   - **Symptom**: Timeout errors or connection failures
+   - **Solution**: Check network security groups, firewall rules, and VNET settings
+
+4. **Environment Detection**
+   - **Symptom**: Configuration values available in one service but not another
+   - **Solution**: Use `/api/diagnostic/verify-azure-function-service` to check environment detection
+
+5. **Record Creation Issues**
+   - **Symptom**: Records being updated instead of created as new
+   - **Solution**: Verify the code is not sending a conversationId in the payload
+
+### Manual Testing
+
+1. Send a test chat message
+2. Check application logs for `AZURE_FUNCTION_SAVE_SUCCESS`
+3. Verify database records show the new conversation
+4. If issues persist, use the direct test endpoint to isolate the problem
