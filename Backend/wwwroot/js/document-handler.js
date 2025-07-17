@@ -75,7 +75,11 @@ function createFileUploadIndicator(file, chatMessages, uploadButton, fileInput, 
         fileTypeClass = 'xlsx';
     }
     
-    fileIcon.classList.add(fileTypeClass);
+    // Only add the fileTypeClass if it's not empty
+    if (fileTypeClass) {
+        fileIcon.classList.add(fileTypeClass);
+    }
+    
     fileIcon.innerHTML = `<i class="fas ${iconClass}"></i>`;
     
     // Create file info section
