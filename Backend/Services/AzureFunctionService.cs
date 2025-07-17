@@ -14,6 +14,16 @@ namespace Backend.Services
         private readonly IConfiguration _configuration;
         private readonly ILogger<AzureFunctionService> _logger;
         private readonly HttpClient _httpClient;
+        
+        /// <summary>
+        /// Helper method to determine if running in Azure environment
+        /// </summary>
+        private static bool IsRunningInAzure()
+        {
+            // Check for common Azure App Service environment variables
+            return !string.IsNullOrEmpty(Environment.GetEnvironmentVariable("WEBSITE_SITE_NAME")) ||
+                   !string.IsNullOrEmpty(Environment.GetEnvironmentVariable("WEBSITE_INSTANCE_ID"));
+        }
 
         public AzureFunctionService(
             IConfiguration configuration, 
@@ -32,17 +42,53 @@ namespace Backend.Services
                 // NOTE: We're intentionally NOT generating a conversation ID here
                 // The Azure Function will generate one for us when creating a new record
                 
-                // Get Azure Function configuration
-                var functionUrl = _configuration["AzureFunction:Url"] ?? 
-                    Environment.GetEnvironmentVariable("AZURE_FUNCTION_URL");
+                // Get Azure Function configuration with enhanced logging and exact environment variable names
+                _logger.LogWarning("CONFIGURATION DEBUG: Starting configuration retrieval for Azure Function");
                 
-                var functionKey = _configuration["AzureFunction:Key"] ?? 
-                    Environment.GetEnvironmentVariable("AZURE_FUNCTION_KEY");
-                    
+                // IMPORTANT: Use the exact environment variable names as configured in Azure
+                // Check both config sources - environment variables take precedence over appsettings.json
+                string envUrl = Environment.GetEnvironmentVariable("AZURE_FUNCTION_URL");
+                string configUrl = _configuration["AzureFunction:Url"];
+                
+                // Log the actual raw values from both sources for debugging (with sensitive parts masked)
+                _logger.LogWarning("CONFIGURATION DEBUG: Raw env URL: {EnvUrl}, Raw config URL: {ConfigUrl}",
+                    !string.IsNullOrEmpty(envUrl) ? "[VALUE SET]" : "[NOT SET]",
+                    !string.IsNullOrEmpty(configUrl) ? "[VALUE SET]" : "[NOT SET]");
+                
+                // Get the function URL from environment variable first, then fallback to config
+                string functionUrl = envUrl ?? configUrl ?? string.Empty;
+                
+                // Do the same for the function key
+                string envKey = Environment.GetEnvironmentVariable("AZURE_FUNCTION_KEY");
+                string configKey = _configuration["AzureFunction:Key"];
+                
+                _logger.LogWarning("CONFIGURATION DEBUG: Key from env: {HasEnvKey}, Key from config: {HasConfigKey}",
+                    !string.IsNullOrEmpty(envKey), !string.IsNullOrEmpty(configKey));
+                
+                // Get the function key from environment variable first, then fallback to config
+                string functionKey = envKey ?? configKey ?? string.Empty;
+                
+                // Clean up URL if needed (remove trailing slash)
+                if (!string.IsNullOrEmpty(functionUrl) && functionUrl.EndsWith("/"))
+                {
+                    functionUrl = functionUrl.TrimEnd('/');
+                    _logger.LogWarning("CONFIGURATION DEBUG: Removed trailing slash from URL");
+                }
+                
+                // Log final configuration status
+                _logger.LogWarning("CONFIGURATION DEBUG: Final URL configured: {HasUrl}, URL value: {MaskedUrl}",
+                    !string.IsNullOrEmpty(functionUrl), 
+                    !string.IsNullOrEmpty(functionUrl) ? 
+                        functionUrl.Replace("/api/", "/****/") : 
+                        "<NOT CONFIGURED>");
+                        
+                _logger.LogWarning("CONFIGURATION DEBUG: Final Key configured: {HasKey}",
+                    !string.IsNullOrEmpty(functionKey));
+            
                 // Skip if configuration is missing
                 if (string.IsNullOrEmpty(functionUrl))
                 {
-                    _logger.LogWarning("Azure Function URL not configured. Skipping conversation save.");
+                    _logger.LogError("CRITICAL ERROR: Azure Function URL not configured. Skipping conversation save.");
                     return;
                 }
                 
