@@ -7,6 +7,21 @@
 let documentInContext = localStorage.getItem('documentInContext') === 'true' || false;
 let lastDocumentName = localStorage.getItem('lastDocumentName') || null;
 
+// Track conversation history to maintain context
+let conversationHistory = [];
+
+// Load conversation history from localStorage if available
+try {
+    const savedHistory = localStorage.getItem('conversationHistory');
+    if (savedHistory) {
+        conversationHistory = JSON.parse(savedHistory);
+        console.log(`Loaded ${conversationHistory.length} messages from conversation history`);
+    }
+} catch (error) {
+    console.warn('Failed to load conversation history from localStorage:', error);
+    conversationHistory = [];
+}
+
 // Generate a persistent client ID that won't change between page refreshes
 let clientSessionId = localStorage.getItem('clientSessionId');
 if (!clientSessionId) {
@@ -60,7 +75,8 @@ async function callChatAPI(message) {
             message,
             // Always maintain document context if we have a document
             MaintainDocumentContext: documentInContext,  // FIXED: Capitalized to match C# property name
-            ClientSessionId: clientSessionId  // Add our client-side session ID to help with persistence
+            ClientSessionId: clientSessionId,  // Add our client-side session ID to help with persistence
+            ConversationHistory: conversationHistory  // Include conversation history for context
         })
     });
     
@@ -97,8 +113,42 @@ async function callChatAPI(message) {
     // Debug current state after processing
     console.log(`Current document state after API response: documentInContext=${documentInContext}, lastDocumentName=${lastDocumentName}`);
 
+    // Save conversation history
+    if (data.response) {
+        // Add user message to history
+        conversationHistory.push({
+            role: 'user',
+            content: message
+        });
+        
+        // Add assistant response to history
+        conversationHistory.push({
+            role: 'assistant',
+            content: data.response
+        });
+        
+        // Keep only the last 20 messages (10 exchanges) to prevent excessive memory usage
+        if (conversationHistory.length > 20) {
+            conversationHistory = conversationHistory.slice(-20);
+        }
+        
+        // Save to localStorage
+        try {
+            localStorage.setItem('conversationHistory', JSON.stringify(conversationHistory));
+            console.log(`Saved conversation history: ${conversationHistory.length} messages`);
+        } catch (error) {
+            console.warn('Failed to save conversation history to localStorage:', error);
+        }
+    }
     
     return data.response;
+}
+
+// Function to clear conversation history
+function clearConversationHistory() {
+    conversationHistory = [];
+    localStorage.removeItem('conversationHistory');
+    console.log('Conversation history cleared');
 }
 
 // Function to call the chat with file API
@@ -226,6 +276,9 @@ async function clearDocumentContext() {
     localStorage.setItem('documentInContext', 'false');
     localStorage.removeItem('lastDocumentName');
     
+    // Clear conversation history when document context is cleared
+    clearConversationHistory();
+    
     // Update the UI to reflect no document in context
     updateUIDocumentState();
     console.log('Document context cleared');
@@ -244,6 +297,7 @@ export {
     callChatAPI, 
     callChatWithFileAPI, 
     clearDocumentContext,
+    clearConversationHistory,
     documentInContext, 
     setDocumentContext,
     updateUIDocumentState

@@ -165,8 +165,18 @@ namespace Backend.Controllers
                     _documentPersistenceService.ClearDocument(sessionId);
                 }
                 
-                // Process the chat request with the document context if available
-                string response = await _chatService.ProcessChatRequest(request.Message, documentInfo);
+                // Process the chat request with conversation history and document context if available
+                string response;
+                if (request.ConversationHistory != null && request.ConversationHistory.Count > 0)
+                {
+                    _logger.LogInformation("Processing chat request with {HistoryCount} conversation history messages", request.ConversationHistory.Count);
+                    response = await _chatService.ProcessChatRequestWithHistory(request.Message, request.ConversationHistory, documentInfo);
+                }
+                else
+                {
+                    _logger.LogInformation("Processing chat request without conversation history");
+                    response = await _chatService.ProcessChatRequest(request.Message, documentInfo);
+                }
                 
                 // Return document context info in the response so client knows if a document is being used
                 // ALWAYS include document info in response if we have it or if there was a document in context

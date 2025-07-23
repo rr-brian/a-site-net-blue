@@ -13,6 +13,9 @@ namespace Backend.Models
         
         [JsonPropertyName("clientSessionId")]
         public string ClientSessionId { get; set; } = "";
+        
+        [JsonPropertyName("conversationHistory")]
+        public List<ChatHistoryMessage> ConversationHistory { get; set; } = new List<ChatHistoryMessage>();
     }
 
     public class ChatResponse

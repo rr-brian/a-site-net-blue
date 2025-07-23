@@ -308,6 +308,188 @@ namespace Backend.Services
         }
 
         /// <summary>
+        /// Process a chat request with conversation history and optional document context
+        /// </summary>
+        /// <param name="message">The current message from the user</param>
+        /// <param name="conversationHistory">Previous conversation messages</param>
+        /// <param name="documentInfo">Optional document context information</param>
+        /// <returns>The AI response text</returns>
+        public async Task<string> ProcessChatRequestWithHistory(string message, List<ChatHistoryMessage> conversationHistory, DocumentInfo? documentInfo = null)
+        {
+            try
+            {
+                // Check if OpenAI client is available
+                if (_openAIClient == null)
+                {
+                    _logger.LogWarning("OpenAI client is not available. Check Azure OpenAI configuration.");
+                    return "I'm sorry, but the AI service is not currently available. Please check your Azure OpenAI configuration and try again later.";
+                }
+                
+                _logger.LogInformation("Processing chat request with conversation history: {HistoryCount} messages, Document: {HasDocument}", 
+                    conversationHistory?.Count ?? 0, documentInfo != null);
+                
+                // Get deployment name from configuration
+                var deploymentName = _openAIConfig.DeploymentName ?? "gpt-35-turbo";
+                
+                // Setup chat completion options
+                var chatCompletionsOptions = new ChatCompletionsOptions
+                {
+                    DeploymentName = deploymentName,
+                    Temperature = 0.5f,
+                    MaxTokens = 4000,
+                };
+                
+                // Prepare document context if available
+                string documentContext = null;
+                string systemPrompt = null;
+                if (documentInfo != null)
+                {
+                    _logger.LogInformation("Processing chat with document context. Document: {FileName}", documentInfo.FileName);
+                    
+                    // Use the DocumentContextService to prepare document context
+                    documentContext = _documentContextService.PrepareDocumentContext(documentInfo, message);
+                    _logger.LogInformation("Document context prepared: {Length} chars", documentContext?.Length ?? 0);
+                    
+                    // Generate system prompt for document context
+                    systemPrompt = _promptEngineeringService.CreateSystemPrompt(documentInfo, documentContext);
+                }
+                
+                // Use the provided system prompt if available, otherwise create one
+                if (systemPrompt == null)
+                {
+                    _logger.LogInformation("No custom system prompt provided, generating one with PromptEngineeringService");
+                    systemPrompt = _promptEngineeringService.CreateSystemPrompt(documentInfo, documentContext);
+                }
+                
+                // Add system message
+                chatCompletionsOptions.Messages.Add(new ChatRequestSystemMessage(systemPrompt));
+                
+                // Add conversation history
+                if (conversationHistory != null && conversationHistory.Count > 0)
+                {
+                    _logger.LogInformation("Adding {HistoryCount} messages from conversation history", conversationHistory.Count);
+                    
+                    foreach (var historyMessage in conversationHistory)
+                    {
+                        if (historyMessage.Role.ToLower() == "user")
+                        {
+                            chatCompletionsOptions.Messages.Add(new ChatRequestUserMessage(historyMessage.Content));
+                        }
+                        else if (historyMessage.Role.ToLower() == "assistant")
+                        {
+                            chatCompletionsOptions.Messages.Add(new ChatRequestAssistantMessage(historyMessage.Content));
+                        }
+                    }
+                }
+                
+                // Add current user message
+                chatCompletionsOptions.Messages.Add(new ChatRequestUserMessage(message));
+                
+                // Call OpenAI API with retry logic
+                Response<ChatCompletions> response = null;
+                int retryCount = 0;
+                int retryDelay = InitialRetryDelayMs;
+                
+                while (retryCount <= MaxRetries)
+                {
+                    try 
+                    {
+                        _logger.LogInformation("Sending chat request to OpenAI API (attempt {Attempt}) with {MessageCount} messages", 
+                            retryCount + 1, chatCompletionsOptions.Messages.Count);
+                        response = await _openAIClient.GetChatCompletionsAsync(chatCompletionsOptions);
+                        break; // Success, exit retry loop
+                    }
+                    catch (RequestFailedException ex) when (ex.Status == 429) // Too Many Requests
+                    {
+                        retryCount++;
+                        
+                        if (retryCount > MaxRetries)
+                        {
+                            _logger.LogError(ex, "Failed to get chat completions after {Retries} retries due to rate limits", MaxRetries);
+                            throw;
+                        }
+                        
+                        _logger.LogWarning("Rate limit exceeded (429). Retrying in {Delay}ms. Attempt {Attempt} of {MaxRetries}", 
+                            retryDelay, retryCount, MaxRetries);
+                            
+                        await Task.Delay(retryDelay);
+                        retryDelay *= 2; // Exponential backoff
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError(ex, "Error calling OpenAI API on attempt {Attempt}: {Message}", retryCount + 1, ex.Message);
+                        throw;
+                    }
+                }
+                
+                if (response?.Value?.Choices?.Count > 0)
+                {
+                    string responseText = response.Value.Choices[0].Message.Content;
+                    _logger.LogInformation("Received response from OpenAI API: {Length} chars", responseText?.Length ?? 0);
+                    
+                    // Save conversation to Azure Function if service is available
+                    if (_azureFunctionService != null)
+                    {
+                        try
+                        {
+                            // Fire and forget - don't wait for this to complete
+                            var saveTask = Task.Run(async () =>
+                            {
+                                try
+                                {
+                                    var saveId = Guid.NewGuid().ToString().Substring(0, 8);
+                                    _logger.LogWarning("AZURE_FUNCTION_SAVE_START [{SaveId}]: Starting conversation save", saveId);
+                                    
+                                    using (var cts = new CancellationTokenSource(TimeSpan.FromSeconds(30)))
+                                    {
+                                        try
+                                        {
+                                            await _azureFunctionService.SaveConversationAsync(message, responseText)
+                                                .WaitAsync(cts.Token)
+                                                .ConfigureAwait(false);
+                                                
+                                            _logger.LogWarning("AZURE_FUNCTION_SAVE_SUCCESS [{SaveId}]: Successfully saved conversation", saveId);
+                                        }
+                                        catch (TaskCanceledException)
+                                        {
+                                            _logger.LogError("AZURE_FUNCTION_SAVE_TIMEOUT [{SaveId}]: Azure Function call timed out after 30 seconds", saveId);
+                                        }
+                                        catch (Exception innerEx)
+                                        {
+                                            _logger.LogError(innerEx, "AZURE_FUNCTION_SAVE_ERROR [{SaveId}]: Inner exception: {Type}, Message: {Message}", 
+                                                saveId, innerEx.GetType().Name, innerEx.Message);
+                                        }
+                                    }
+                                }
+                                catch (Exception outerEx)
+                                {
+                                    _logger.LogError(outerEx, "Failed to save conversation to Azure Function: {Message}", outerEx.Message);
+                                }
+                            });
+                            
+                            _ = saveTask;
+                        }
+                        catch (Exception ex)
+                        {
+                            _logger.LogError(ex, "Error initiating conversation save to Azure Function: {Message}, Type: {Type}", 
+                                ex.Message, ex.GetType().Name);
+                        }
+                    }
+                    
+                    return responseText;
+                }
+                
+                _logger.LogWarning("No valid response received from OpenAI API");
+                return "I'm sorry, but I couldn't generate a response. Please try again later.";
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error processing chat request with history");
+                return "I'm sorry, an error occurred while processing your request. Please try again later.";
+            }
+        }
+
+        /// <summary>
         /// Process a chat request with a newly uploaded document
         /// </summary>
         public async Task<(string Response, DocumentInfo DocumentInfo)> ProcessChatWithDocument(
