@@ -1,0 +1,26 @@
+{
+  "EntraId": {
+    "TenantId": "REPLACE_WITH_TENANT_ID",
+    "ClientId": "REPLACE_WITH_API_CLIENT_ID",
+    "Instance": "https://login.microsoftonline.com/",
+    "Domain": "REPLACE_WITH_TENANT_DOMAIN",
+    "Audience": "api://REPLACE_WITH_API_CLIENT_ID",
+    "Scopes": "api://REPLACE_WITH_API_CLIENT_ID/access_as_user"
+  },
+  "AzureOpenAI": {
+    "Endpoint": "REPLACE_WITH_OPENAI_ENDPOINT",
+    "ApiKey": "REPLACE_WITH_OPENAI_KEY",
+    "DeploymentName": "gpt-35-turbo"
+  },
+  "AzureFunction": {
+    "Url": "REPLACE_WITH_FUNCTION_URL",
+    "Key": "REPLACE_WITH_FUNCTION_KEY"
+  },
+  "Logging": {
+    "LogLevel": {
+      "Default": "Information",
+      "Microsoft.AspNetCore": "Warning"
+    }
+  },
+  "AllowedHosts": "*"
+}

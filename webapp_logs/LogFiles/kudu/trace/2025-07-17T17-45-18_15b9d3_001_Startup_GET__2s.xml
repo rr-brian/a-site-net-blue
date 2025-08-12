@@ -1,0 +1,5 @@
+<step title="Startup Request" date="2025-07-17T17:45:18.673" instance="15b9d3" url="/" method="GET" type="request" pid="10004,2,7" ScmType="ExternalGit" SCM_COMMAND_IDLE_TIMEOUT="300" >
+  <step title="Cleanup Xml Logs" date="2025-07-17T17:45:18.703" >
+    <step title="Cleanup Infos" date="2025-07-17T17:45:18.739" totalFiles="200" totalCleanup="40" /><!-- duration: 2168ms -->
+  </step><!-- duration: 2234ms -->
+</step><!-- duration: 2265ms -->

@@ -1,0 +1,247 @@
+using System;
+using System.Collections.Generic;
+using System.Threading.Tasks;
+using Microsoft.Extensions.Logging;
+using Backend.Models;
+using Azure;
+using Azure.AI.OpenAI;
+using Backend.Configuration;
+
+namespace Backend.Services
+{
+    /// <summary>
+    /// Main service for processing chat requests with or without document context
+    /// </summary>
+    public class ChatService : IChatService
+    {
+        private readonly OpenAIClient _openAIClient;
+        private readonly OpenAIConfiguration _openAIConfig;
+        private readonly DocumentChunkingService _documentChunkingService;
+        private readonly IDocumentContextService _documentContextService;
+        private readonly IChatAnalysisService _chatAnalysisService;
+        private readonly IPromptEngineeringService _promptEngineeringService;
+        private readonly ILogger<ChatService> _logger;
+        
+        // Default retry settings for API call failures
+        private const int MaxRetries = 3;
+        private const int InitialRetryDelayMs = 1000;
+        
+        public ChatService(
+            OpenAIClient openAIClient,
+            OpenAIConfiguration openAIConfig,
+            DocumentChunkingService documentChunkingService,
+            IDocumentContextService documentContextService,
+            IChatAnalysisService chatAnalysisService,
+            IPromptEngineeringService promptEngineeringService,
+            ILogger<ChatService> logger)
+        {
+            _openAIClient = openAIClient;
+            _openAIConfig = openAIConfig;
+            _documentChunkingService = documentChunkingService;
+            _documentContextService = documentContextService;
+            _chatAnalysisService = chatAnalysisService;
+            _promptEngineeringService = promptEngineeringService;
+            _logger = logger;
+        }
+        
+        /// <summary>
+        /// Process a chat request with or without document context
+        /// </summary>
+        /// <param name="message">The message from the user</param>
+        /// <param name="documentInfo">Optional document context information</param>
+        /// <returns>The AI response text</returns>
+        public async Task<string> ProcessChatRequest(string message, DocumentInfo? documentInfo = null)
+        {
+            try
+            {
+                // Check if OpenAI client is available
+                if (_openAIClient == null)
+                {
+                    _logger.LogWarning("OpenAI client is not available. Check Azure OpenAI configuration.");
+                    return "I'm sorry, but the AI service is not currently available. Please check your Azure OpenAI configuration and try again later.";
+                }
+                
+                // Get deployment name from configuration
+                var deploymentName = _openAIConfig.DeploymentName;
+                
+                _logger.LogInformation("Using deployment name: {DeploymentName}", deploymentName);
+                _logger.LogInformation("Processing chat request with message: {MessageLength} chars, Document: {HasDocument}", 
+                    message?.Length ?? 0, documentInfo != null);
+                
+                // Setup chat completion options
+                var chatCompletionsOptions = new ChatCompletionsOptions
+                {
+                    DeploymentName = deploymentName,
+                    Temperature = 0.5f,
+                    MaxTokens = 4000,
+                };
+                
+                // Prepare document context if available
+                string documentContext = null;
+                string systemPrompt = null;
+                if (documentInfo != null)
+                {
+                    _logger.LogInformation("Processing chat with document context. Document: {FileName}", documentInfo.FileName);
+                    
+                    // Add detailed logging about document content
+                    _logger.LogWarning("DOCUMENT DEBUG: Document {FileName} has {ChunkCount} chunks and {MetadataCount} metadata items", 
+                        documentInfo.FileName,
+                        documentInfo.Chunks?.Count ?? 0,
+                        documentInfo.ChunkMetadata?.Count ?? 0);
+                        _logger.LogInformation("Document chunk sample: {Sample}", 
+                            documentInfo.Chunks[0].Length > 50 
+                                ? documentInfo.Chunks[0].Substring(0, 50) + "..." 
+                                : documentInfo.Chunks[0]);
+                    }
+                    
+                    // Use the DocumentContextService to prepare document context
+                    documentContext = _documentContextService.PrepareDocumentContext(documentInfo, message);
+                    _logger.LogInformation("Document context prepared: {Length} chars", documentContext?.Length ?? 0);
+                    
+                    // Verify we have actual document context content
+                    if (string.IsNullOrEmpty(documentContext))
+                    {
+                        _logger.LogError("CRITICAL ERROR: Document context is empty despite having document info");
+                    }
+                    else
+                    {
+                        _logger.LogInformation("Document context sample: {Sample}", 
+                            documentContext.Length > 50 
+                                ? documentContext.Substring(0, 50) + "..." 
+                                : documentContext);
+                    }
+                }
+                
+                // Use the provided system prompt if available, otherwise create one
+                if (systemPrompt == null)
+                {
+                    _logger.LogInformation("No custom system prompt provided, generating one with PromptEngineeringService");
+                    systemPrompt = _promptEngineeringService.CreateSystemPrompt(documentInfo, documentContext);
+                }
+                else
+                {
+                    _logger.LogInformation("Using provided custom system prompt: {Length} characters", systemPrompt.Length);
+                }
+                
+                // Add system message
+                chatCompletionsOptions.Messages.Add(new ChatRequestSystemMessage(systemPrompt));
+                
+                // Add user message
+                chatCompletionsOptions.Messages.Add(new ChatRequestUserMessage(message));
+                
+                // Call OpenAI API with retry logic
+                Response<ChatCompletions> response = null;
+                int retryCount = 0;
+                int retryDelay = InitialRetryDelayMs;
+                
+                while (retryCount <= MaxRetries)
+                {
+                    try 
+                    {
+                        _logger.LogInformation("Sending chat request to OpenAI API (attempt {Attempt})", retryCount + 1);
+                        response = await _openAIClient.GetChatCompletionsAsync(chatCompletionsOptions);
+                        break; // Success, exit retry loop
+                    }
+                    catch (RequestFailedException ex) when (ex.Status == 429) // Too Many Requests
+                    {
+                        retryCount++;
+                        
+                        if (retryCount > MaxRetries)
+                        {
+                            _logger.LogError(ex, "Failed to get chat completions after {Retries} retries due to rate limits", MaxRetries);
+                            throw;
+                        }
+                        
+                        _logger.LogWarning("Rate limit exceeded (429). Retrying in {Delay}ms. Attempt {Attempt} of {MaxRetries}", 
+                            retryDelay, retryCount, MaxRetries);
+                            
+                        await Task.Delay(retryDelay);
+                        retryDelay *= 2; // Exponential backoff
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError(ex, "Error calling OpenAI API");
+                        throw;
+                    }
+                }
+                
+                // Extract response text and log completion
+                if (response?.Value?.Choices?.Count > 0)
+                {
+                    string responseText = response.Value.Choices[0].Message.Content;
+                    _logger.LogInformation("Received response from OpenAI API: {Length} chars", responseText?.Length ?? 0);
+                    return responseText;
+                }
+                
+                // If we got here, something went wrong
+                _logger.LogWarning("No valid response received from OpenAI API");
+                return "I'm sorry, but I couldn't generate a response. Please try again later.";
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error processing chat request");
+                return "I'm sorry, an error occurred while processing your request. Please try again later.";
+            }
+        }
+
+        /// <summary>
+        /// Process a chat request with a newly uploaded document
+        /// </summary>
+        public async Task<(string Response, DocumentInfo DocumentInfo)> ProcessChatWithDocument(
+            string userMessage, 
+            string documentText, 
+            string fileName)
+        {
+            try
+            {
+                _logger.LogInformation("Starting ProcessChatWithDocument with file {FileName}, document text length: {TextLength}", 
+                    fileName, documentText?.Length ?? 0);
+                
+                if (string.IsNullOrEmpty(documentText))
+                {
+                    _logger.LogWarning("Empty document text received for file {FileName}", fileName);
+                    var emptyDocInfo = new DocumentInfo { FileName = fileName, UploadTime = DateTime.Now };
+                    return ("The uploaded document appears to be empty or could not be processed. Please try uploading a different file.", emptyDocInfo);
+                }
+                
+                // Create document chunks directly
+                _logger.LogInformation("Chunking document {FileName}", fileName);
+                var chunks = _documentChunkingService.ChunkDocument(documentText);
+                
+                _logger.LogInformation("Document {FileName} chunked into {ChunkCount} chunks", fileName, chunks.Count);
+                
+                // Create document info
+                var documentInfo = new DocumentInfo
+                {
+                    FileName = fileName,
+                    Chunks = chunks,
+                    UploadTime = DateTime.Now
+                };
+                
+                // Process chat with document context
+                _logger.LogInformation("Processing chat with document context for {FileName}", fileName);
+                
+                // Use our specialized services to enhance the context and prompt
+                string documentContext = _documentContextService.PrepareDocumentContext(documentInfo, userMessage);
+                
+                _logger.LogInformation("Created document context ({ContextLength} chars)", 
+                    documentContext?.Length ?? 0);
+                
+                // Process chat with the document context - renamed to match interface
+                string response = await ProcessChatRequest(userMessage, documentInfo);
+                
+                return (response, documentInfo);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error processing chat with document {FileName}: {ErrorMessage}", fileName, ex.Message);
+                
+                // Create minimal document info for response
+                var errorDocInfo = new DocumentInfo { FileName = fileName, UploadTime = DateTime.Now };
+                
+                // Return a user-friendly error message
+                return ($"An error occurred while processing your document: {ex.Message}", errorDocInfo);
+            }
+        }
+    }
+}

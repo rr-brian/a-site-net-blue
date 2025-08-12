@@ -1,0 +1,21 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<deployment>
+  <id>b21ff7f556cbe3d7395396512c09128642e5539b</id>
+  <author>Brian Worthington</author>
+  <deployer>GitHub</deployer>
+  <authorEmail>worthington.brian@realtyts.com</authorEmail>
+  <message>Fix ChatService to inject IDocumentChunkingService interface instead of concrete class to resolve DI chain
+</message>
+  <progress></progress>
+  <status>Success</status>
+  <statusText></statusText>
+  <lastSuccessEndTime>2025-07-15T21:42:08.7545065Z</lastSuccessEndTime>
+  <receivedTime>2025-07-15T21:40:55.5354166Z</receivedTime>
+  <startTime>2025-07-15T21:40:55.9416634Z</startTime>
+  <endTime>2025-07-15T21:42:08.7545065Z</endTime>
+  <complete>True</complete>
+  <is_temp>False</is_temp>
+  <is_readonly>False</is_readonly>
+  <project_type>CUSTOM DEPLOYMENT</project_type>
+  <vsproject_id></vsproject_id>
+</deployment>

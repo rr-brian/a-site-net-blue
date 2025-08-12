@@ -1,0 +1,95 @@
+<step title="BackgroundTrace" date="2025-07-15T21:03:31.826" instance="15b9d3" url="/deploy" method="POST" >
+  <step title="Updating shutdown sentinel last write time" date="2025-07-15T21:03:31.839" SemaphoreCount="7" /><!-- duration: 18ms -->
+  <step title="LockFile &apos;C:\home\site\locks\deployments.lock&apos; acquired" date="2025-07-15T21:03:31.857" /><!-- duration: 13ms -->
+  <step title="Creating temporary deployment" date="2025-07-15T21:03:31.870" /><!-- duration: 63ms -->
+  <step title="Performing fetch based deployment" date="2025-07-15T21:03:31.949" >
+    <step title="Fetching changes." date="2025-07-15T21:03:32.139" /><!-- duration: 44ms -->
+    <step title="Before sending BuildRequestReceived status to /api/updatedeploystatus" date="2025-07-15T21:03:34.219" /><!-- duration: 47ms -->
+    <step title="DeploymentManager.Deploy(id:a97d253386431315a9e6994c63c65a139939aaa4)" date="2025-07-15T21:03:34.360" >
+      <step title="Collecting changeset information" date="2025-07-15T21:03:34.388" /><!-- duration: 154ms -->
+      <step title="Updating submodules" date="2025-07-15T21:03:34.558" >
+        <step title="Updating submodules." date="2025-07-15T21:03:34.636" /><!-- duration: 0ms -->
+      </step><!-- duration: 96ms -->
+      <step title="Preparing deployment for commit id &apos;a97d253386&apos;." date="2025-07-15T21:03:34.746" /><!-- duration: 16ms -->
+      <step title="Determining deployment builder" date="2025-07-15T21:03:34.902" >
+        <step title="Builder is CustomBuilder" date="2025-07-15T21:03:34.902" /><!-- duration: 16ms -->
+      </step><!-- duration: 16ms -->
+      <step title="Copying SSH keys" date="2025-07-15T21:03:34.949" /><!-- duration: 15ms -->
+      <step title="Building" date="2025-07-15T21:03:34.964" >
+        <step title="Running custom deployment command..." date="2025-07-15T21:03:35.121" /><!-- duration: 0ms -->
+        <step title="Running deployment command..." date="2025-07-15T21:03:35.292" /><!-- duration: 0ms -->
+        <step title="Command: deploy.cmd" date="2025-07-15T21:03:35.292" /><!-- duration: 16ms -->
+        <step title="Executing external process" date="2025-07-15T21:03:35.402" type="process" path="starter.cmd" arguments="deploy.cmd" >
+          <step title="Handling ASP.NET Core Web Application deployment." date="2025-07-15T21:03:36.407" /><!-- duration: 0ms -->
+          <step title="  Determining projects to restore..." date="2025-07-15T21:03:43.141" /><!-- duration: 10ms -->
+          <step title="  All projects are up-to-date for restore." date="2025-07-15T21:03:46.544" /><!-- duration: 15ms -->
+          <step title="C:\home\site\repository\Backend\Program.cs(49,9): warning CS8604: Possible null reference argument for parameter &apos;openAIClient&apos; in &apos;ChatService.ChatService(OpenAIClient openAIClient, OpenAIConfiguration openAIConfig, DocumentChunkingService documentChunkingService, IDocumentContextService documentContextService, IChatAnalysisService chatAnalysisService, IPromptEngineeringService promptEngineeringService, ILogger&lt;ChatService&gt; logger)&apos;. [C:\home\site\repository\Backend\Backend.csproj]" date="2025-07-15T21:04:06.965" /><!-- duration: 16ms -->
+          <step title="C:\home\site\repository\Backend\Program.cs(104,25): warning CS8604: Possible null reference argument for parameter &apos;uriString&apos; in &apos;Uri.Uri(string uriString)&apos;. [C:\home\site\repository\Backend\Backend.csproj]" date="2025-07-15T21:04:07.028" /><!-- duration: 0ms -->
+          <step title="C:\home\site\repository\Backend\Program.cs(105,46): warning CS8604: Possible null reference argument for parameter &apos;key&apos; in &apos;AzureKeyCredential.AzureKeyCredential(string key)&apos;. [C:\home\site\repository\Backend\Backend.csproj]" date="2025-07-15T21:04:07.058" /><!-- duration: 0ms -->
+          <step title="C:\home\site\repository\Backend\Program.cs(159,9): warning CS8602: Dereference of a possibly null reference. [C:\home\site\repository\Backend\Backend.csproj]" date="2025-07-15T21:04:07.435" /><!-- duration: 47ms -->
+          <step title="C:\home\site\repository\Backend\Controllers\DocumentChatController.cs(159,47): warning CS8600: Converting null literal or possible null value to non-nullable type. [C:\home\site\repository\Backend\Backend.csproj]" date="2025-07-15T21:04:07.529" /><!-- duration: 0ms -->
+          <step title="C:\home\site\repository\Backend\Controllers\DocumentChatController.cs(163,44): warning CS8600: Converting null literal or possible null value to non-nullable type. [C:\home\site\repository\Backend\Backend.csproj]" date="2025-07-15T21:04:07.543" /><!-- duration: 0ms -->
+          <step title="C:\home\site\repository\Backend\Controllers\DocumentChatController.cs(231,36): warning CS8602: Dereference of a possibly null reference. [C:\home\site\repository\Backend\Backend.csproj]" date="2025-07-15T21:04:07.577" /><!-- duration: 13ms -->
+          <step title="C:\home\site\repository\Backend\Controllers\DocumentChatController.cs(257,47): warning CS8600: Converting null literal or possible null value to non-nullable type. [C:\home\site\repository\Backend\Backend.csproj]" date="2025-07-15T21:04:07.636" /><!-- duration: 0ms -->
+          <step title="C:\home\site\repository\Backend\Controllers\ConfigController.cs(82,35): warning CS8600: Converting null literal or possible null value to non-nullable type. [C:\home\site\repository\Backend\Backend.csproj]" date="2025-07-15T21:04:07.636" /><!-- duration: 16ms -->
+          <step title="C:\home\site\repository\Backend\Controllers\ConfigController.cs(83,36): warning CS8600: Converting null literal or possible null value to non-nullable type. [C:\home\site\repository\Backend\Backend.csproj]" date="2025-07-15T21:04:07.652" /><!-- duration: 16ms -->
+          <step title="C:\home\site\repository\Backend\Controllers\ChatController.cs(84,45): warning CS8600: Converting null literal or possible null value to non-nullable type. [C:\home\site\repository\Backend\Backend.csproj]" date="2025-07-15T21:04:07.683" /><!-- duration: 0ms -->
+          <step title="C:\home\site\repository\Backend\Controllers\ChatController.cs(92,36): warning CS8600: Converting null literal or possible null value to non-nullable type. [C:\home\site\repository\Backend\Backend.csproj]" date="2025-07-15T21:04:07.715" /><!-- duration: 0ms -->
+          <step title="C:\home\site\repository\Backend\Controllers\ChatController.cs(98,40): warning CS8600: Converting null literal or possible null value to non-nullable type. [C:\home\site\repository\Backend\Backend.csproj]" date="2025-07-15T21:04:07.730" /><!-- duration: 16ms -->
+          <step title="C:\home\site\repository\Backend\Models\ChatModels.cs(27,23): warning CS8618: Non-nullable property &apos;DocumentInfo&apos; must contain a non-null value when exiting constructor. Consider adding the &apos;required&apos; modifier or declaring the property as nullable. [C:\home\site\repository\Backend\Backend.csproj]" date="2025-07-15T21:04:07.777" /><!-- duration: 0ms -->
+          <step title="C:\home\site\repository\Backend\Services\AzureFunctionService.cs(142,49): warning CS8604: Possible null reference argument for parameter &apos;oldValue&apos; in &apos;string string.Replace(string oldValue, string? newValue)&apos;. [C:\home\site\repository\Backend\Backend.csproj]" date="2025-07-15T21:04:07.793" /><!-- duration: 0ms -->
+          <step title="C:\home\site\repository\Backend\Services\ChatService.cs(87,42): warning CS8600: Converting null literal or possible null value to non-nullable type. [C:\home\site\repository\Backend\Backend.csproj]" date="2025-07-15T21:04:07.808" /><!-- duration: 33ms -->
+          <step title="C:\home\site\repository\Backend\Services\ChatService.cs(88,39): warning CS8600: Converting null literal or possible null value to non-nullable type. [C:\home\site\repository\Backend\Backend.csproj]" date="2025-07-15T21:04:07.855" /><!-- duration: 0ms -->
+          <step title="C:\home\site\repository\Backend\Services\ChatService.cs(116,100): warning CS8604: Possible null reference argument for parameter &apos;userMessage&apos; in &apos;string IDocumentContextService.PrepareDocumentContext(DocumentInfo documentInfo, string userMessage)&apos;. [C:\home\site\repository\Backend\Backend.csproj]" date="2025-07-15T21:04:07.871" /><!-- duration: 0ms -->
+          <step title="C:\home\site\repository\Backend\Services\ChatService.cs(154,54): warning CS8600: Converting null literal or possible null value to non-nullable type. [C:\home\site\repository\Backend\Backend.csproj]" date="2025-07-15T21:04:07.886" /><!-- duration: 0ms -->
+          <step title="C:\home\site\repository\Backend\Services\ChatService.cs(194,28): warning CS8603: Possible null reference return. [C:\home\site\repository\Backend\Backend.csproj]" date="2025-07-15T21:04:07.936" /><!-- duration: 13ms -->
+          <step title="C:\home\site\repository\Backend\Controllers\ChatController.cs(330,43): warning CS8600: Converting null literal or possible null value to non-nullable type. [C:\home\site\repository\Backend\Backend.csproj]" date="2025-07-15T21:04:07.965" /><!-- duration: 16ms -->
+          <step title="C:\home\site\repository\Backend\Controllers\ChatController.cs(345,69): warning CS8604: Possible null reference argument for parameter &apos;message&apos; in &apos;Task&lt;IActionResult&gt; DocumentChatController.ChatWithFile(IFormFile file, string message, string? clientSessionId = null)&apos;. [C:\home\site\repository\Backend\Backend.csproj]" date="2025-07-15T21:04:07.996" /><!-- duration: 16ms -->
+          <step title="C:\home\site\repository\Backend\Controllers\ChatController.cs(385,39): warning CS8600: Converting null literal or possible null value to non-nullable type. [C:\home\site\repository\Backend\Backend.csproj]" date="2025-07-15T21:04:08.265" /><!-- duration: 153ms -->
+          <step title="C:\home\site\repository\Backend\Controllers\ChatController.cs(427,46): warning CS8600: Converting null literal or possible null value to non-nullable type. [C:\home\site\repository\Backend\Backend.csproj]" date="2025-07-15T21:04:08.561" /><!-- duration: 96ms -->
+          <step title="C:\home\site\repository\Backend\Services\LegacyEndpointHandler.cs(75,41): warning CS8601: Possible null reference assignment. [C:\home\site\repository\Backend\Backend.csproj]" date="2025-07-15T21:04:08.825" /><!-- duration: 157ms -->
+          <step title="C:\home\site\repository\Backend\Services\LegacyEndpointHandler.cs(124,39): warning CS8600: Converting null literal or possible null value to non-nullable type. [C:\home\site\repository\Backend\Backend.csproj]" date="2025-07-15T21:04:09.436" /><!-- duration: 47ms -->
+          <step title="C:\home\site\repository\Backend\Services\LegacyEndpointHandler.cs(126,38): warning CS8602: Dereference of a possibly null reference. [C:\home\site\repository\Backend\Backend.csproj]" date="2025-07-15T21:04:09.590" /><!-- duration: 189ms -->
+          <step title="C:\home\site\repository\Backend\Services\DocumentProcessingService.cs(127,28): warning CS8602: Dereference of a possibly null reference. [C:\home\site\repository\Backend\Backend.csproj]" date="2025-07-15T21:04:10.011" /><!-- duration: 157ms -->
+          <step title="C:\home\site\repository\Backend\Services\DocumentProcessingService.cs(127,28): warning CS8602: Dereference of a possibly null reference. [C:\home\site\repository\Backend\Backend.csproj]" date="2025-07-15T21:04:10.328" /><!-- duration: 76ms -->
+          <step title="C:\home\site\repository\Backend\Services\DocumentProcessingService.cs(147,45): warning CS8602: Dereference of a possibly null reference. [C:\home\site\repository\Backend\Backend.csproj]" date="2025-07-15T21:04:10.512" /><!-- duration: 35ms -->
+          <step title="C:\home\site\repository\Backend\Services\DocumentProcessingService.cs(155,81): warning CS8604: Possible null reference argument for parameter &apos;id&apos; in &apos;OpenXmlPart OpenXmlPartContainer.GetPartById(string id)&apos;. [C:\home\site\repository\Backend\Backend.csproj]" date="2025-07-15T21:04:10.887" /><!-- duration: 66ms -->
+          <step title="C:\home\site\repository\Backend\Services\DocumentProcessingService.cs(168,64): warning CS8604: Possible null reference argument for parameter &apos;sharedStringTable&apos; in &apos;string DocumentProcessingService.GetCellValue(Cell cell, SharedStringTable sharedStringTable)&apos;. [C:\home\site\repository\Backend\Backend.csproj]" date="2025-07-15T21:04:11.481" /><!-- duration: 112ms -->
+          <step title="C:\home\site\repository\Backend\Services\DocumentPersistenceService.cs(73,36): warning CS8600: Converting null literal or possible null value to non-nullable type. [C:\home\site\repository\Backend\Backend.csproj]" date="2025-07-15T21:04:11.808" /><!-- duration: 50ms -->
+          <step title="C:\home\site\repository\Backend\Services\DocumentPersistenceService.cs(89,45): warning CS8601: Possible null reference assignment. [C:\home\site\repository\Backend\Backend.csproj]" date="2025-07-15T21:04:11.933" /><!-- duration: 47ms -->
+          <step title="C:\home\site\repository\Backend\Services\DocumentPersistenceService.cs(92,43): warning CS8601: Possible null reference assignment. [C:\home\site\repository\Backend\Backend.csproj]" date="2025-07-15T21:04:12.063" /><!-- duration: 76ms -->
+          <step title="C:\home\site\repository\Backend\Services\DocumentPersistenceService.cs(107,41): warning CS8601: Possible null reference assignment. [C:\home\site\repository\Backend\Backend.csproj]" date="2025-07-15T21:04:12.246" /><!-- duration: 111ms -->
+          <step title="C:\home\site\repository\Backend\Services\DocumentPersistenceService.cs(110,39): warning CS8601: Possible null reference assignment. [C:\home\site\repository\Backend\Backend.csproj]" date="2025-07-15T21:04:12.512" /><!-- duration: 63ms -->
+          <step title="C:\home\site\repository\Backend\Services\DocumentPersistenceService.cs(122,50): warning CS8602: Dereference of a possibly null reference. [C:\home\site\repository\Backend\Backend.csproj]" date="2025-07-15T21:04:12.717" /><!-- duration: 13ms -->
+          <step title="C:\home\site\repository\Backend\Services\DocumentPersistenceService.cs(190,24): warning CS8603: Possible null reference return. [C:\home\site\repository\Backend\Backend.csproj]" date="2025-07-15T21:04:12.861" /><!-- duration: 57ms -->
+          <step title="C:\home\site\repository\Backend\Services\DocumentPersistenceService.cs(227,32): warning CS8603: Possible null reference return. [C:\home\site\repository\Backend\Backend.csproj]" date="2025-07-15T21:04:13.263" /><!-- duration: 108ms -->
+          <step title="C:\home\site\repository\Backend\Services\DocumentPersistenceService.cs(302,40): warning CS8603: Possible null reference return. [C:\home\site\repository\Backend\Backend.csproj]" date="2025-07-15T21:04:13.480" /><!-- duration: 47ms -->
+          <step title="C:\home\site\repository\Backend\Services\DocumentPersistenceService.cs(318,32): warning CS8603: Possible null reference return. [C:\home\site\repository\Backend\Backend.csproj]" date="2025-07-15T21:04:13.621" /><!-- duration: 47ms -->
+          <step title="C:\home\site\repository\Backend\Services\DocumentPersistenceService.cs(332,20): warning CS8603: Possible null reference return. [C:\home\site\repository\Backend\Backend.csproj]" date="2025-07-15T21:04:13.734" /><!-- duration: 76ms -->
+          <step title="C:\home\site\repository\Backend\Services\DocumentContextService.cs(396,41): warning CS1998: This async method lacks &apos;await&apos; operators and will run synchronously. Consider using the &apos;await&apos; operator to await non-blocking API calls, or &apos;await Task.Run(...)&apos; to do CPU-bound work on a background thread. [C:\home\site\repository\Backend\Backend.csproj]" date="2025-07-15T21:04:13.905" /><!-- duration: 28ms -->
+          <step title="C:\home\site\repository\Backend\Controllers\ChatController.cs(412,31): warning CA2022: Avoid inexact read with &apos;System.IO.Stream.ReadAsync(byte[], int, int)&apos; (https://learn.microsoft.com/dotnet/fundamentals/code-analysis/quality-rules/ca2022) [C:\home\site\repository\Backend\Backend.csproj]" date="2025-07-15T21:04:14.027" /><!-- duration: 82ms -->
+          <step title="  Backend -&gt; C:\home\site\repository\Backend\bin\Release\net9.0\Backend.dll" date="2025-07-15T21:04:14.231" /><!-- duration: 78ms -->
+          <step title="  Backend -&gt; C:\local\Temp\8ddc3e30ff7466c\" date="2025-07-15T21:04:18.437" /><!-- duration: 12ms -->
+          <step title="Creating app_offline.htm" date="2025-07-15T21:04:26.735" /><!-- duration: 17ms -->
+          <step title="KuduSync.NET from: &apos;C:\local\Temp\8ddc3e30ff7466c&apos; to: &apos;C:\home\site\wwwroot&apos;" date="2025-07-15T21:04:26.771" /><!-- duration: 11ms -->
+          <step title="Copying file: &apos;Backend.dll&apos;" date="2025-07-15T21:04:26.819" /><!-- duration: 10ms -->
+          <step title="Copying file: &apos;Backend.exe&apos;" date="2025-07-15T21:04:26.847" /><!-- duration: 13ms -->
+          <step title="Copying file: &apos;Backend.pdb&apos;" date="2025-07-15T21:04:26.891" /><!-- duration: 0ms -->
+          <step title="Deleting app_offline.htm" date="2025-07-15T21:04:26.923" /><!-- duration: 0ms -->
+          <step title="Finished successfully." date="2025-07-15T21:04:26.954" /><!-- duration: 16ms -->
+        </step><!-- duration: 51615ms -->
+        <step title="Running post deployment command(s)..." date="2025-07-15T21:04:27.205" /><!-- duration: 19ms -->
+        <step title="Triggering recycle (preview mode disabled)." date="2025-07-15T21:04:27.344" /><!-- duration: 17ms -->
+        <step title="Ignoring FS watcher based recycle request as this is a classic Windows app." date="2025-07-15T21:04:27.362" /><!-- duration: 14ms -->
+        <step title="Deployment successful. DEPLOYMENTINFO: deployer = GitHub, os = windows, sku = Standard, siteName = site-net, siteHostName = site-net-rrai-blue-fsgabaardkdhhnhf.centralus-01.azurewebsites.net, deploymentStatus = Success" date="2025-07-15T21:04:27.521" /><!-- duration: 11ms -->
+        <step title="Purge deployment items" date="2025-07-15T21:04:27.830" >
+          <step title="Remove 7050ad1a6, Success, received at 7/15/2025 12:47:22 PM" date="2025-07-15T21:04:27.985" /><!-- duration: 16ms -->
+        </step><!-- duration: 171ms -->
+      </step><!-- duration: 53068ms -->
+    </step><!-- duration: 53703ms -->
+    <step title="Cleaning up temp files" date="2025-07-15T21:04:28.094" /><!-- duration: 203ms -->
+    <step title="Skip function trigger and logicapp sync because function is not enabled." date="2025-07-15T21:04:28.344" /><!-- duration: 0ms -->
+  </step><!-- duration: 56427ms -->
+  <step title="LockFile &apos;C:\home\site\locks\deployments.lock&apos; released" date="2025-07-15T21:04:28.391" /><!-- duration: 18ms -->
+  <step title="Deleting shutdown sentinel file" date="2025-07-15T21:04:28.438" SemaphoreCount="8" /><!-- duration: 16ms -->
+</step><!-- duration: 56644ms -->

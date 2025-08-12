@@ -1,0 +1,21 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<deployment>
+  <id>0c73ffd31f7aceaae5899203fdf07f1126c3a2aa</id>
+  <author>Brian Worthington</author>
+  <deployer>GitHub</deployer>
+  <authorEmail>worthington.brian@realtyts.com</authorEmail>
+  <message>Add Azure Function service verification endpoint for better diagnostics
+</message>
+  <progress></progress>
+  <status>Success</status>
+  <statusText></statusText>
+  <lastSuccessEndTime>2025-07-16T21:19:19.6976351Z</lastSuccessEndTime>
+  <receivedTime>2025-07-16T21:18:08.7841374Z</receivedTime>
+  <startTime>2025-07-16T21:18:09.5341418Z</startTime>
+  <endTime>2025-07-16T21:19:19.6976351Z</endTime>
+  <complete>True</complete>
+  <is_temp>False</is_temp>
+  <is_readonly>False</is_readonly>
+  <project_type>CUSTOM DEPLOYMENT</project_type>
+  <vsproject_id></vsproject_id>
+</deployment>

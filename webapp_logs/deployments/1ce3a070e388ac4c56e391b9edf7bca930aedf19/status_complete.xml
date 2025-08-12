@@ -1,0 +1,21 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<deployment>
+  <id>1ce3a070e388ac4c56e391b9edf7bca930aedf19</id>
+  <author>Brian Worthington</author>
+  <deployer>GitHub</deployer>
+  <authorEmail>worthington.brian@realtyts.com</authorEmail>
+  <message>Fix Azure Function integration to always create new conversation records by omitting conversationId in requests
+</message>
+  <progress></progress>
+  <status>Success</status>
+  <statusText></statusText>
+  <lastSuccessEndTime>2025-07-16T20:41:25.9947937Z</lastSuccessEndTime>
+  <receivedTime>2025-07-16T20:39:28.0380223Z</receivedTime>
+  <startTime>2025-07-16T20:39:28.4911474Z</startTime>
+  <endTime>2025-07-16T20:41:25.9947937Z</endTime>
+  <complete>True</complete>
+  <is_temp>False</is_temp>
+  <is_readonly>False</is_readonly>
+  <project_type>CUSTOM DEPLOYMENT</project_type>
+  <vsproject_id></vsproject_id>
+</deployment>

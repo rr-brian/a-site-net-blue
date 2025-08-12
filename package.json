@@ -1,0 +1,16 @@
+{
+  "name": "net-ai-site-blue",
+  "version": "1.0.0",
+  "description": "This project is a modern, responsive chatbot web application built with .NET 9 and integrates with the Azure OpenAI API.",
+  "main": "server.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "node server.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@azure/msal-browser": "^4.19.0"
+  }
+}

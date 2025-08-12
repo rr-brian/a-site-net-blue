@@ -1,0 +1,56 @@
+<step title="BackgroundTrace" date="2025-07-15T19:37:31.722" instance="15b9d3" url="/deploy" method="POST" >
+  <step title="Updating shutdown sentinel last write time" date="2025-07-15T19:37:31.833" SemaphoreCount="7" /><!-- duration: 16ms -->
+  <step title="LockFile &apos;C:\home\site\locks\deployments.lock&apos; acquired" date="2025-07-15T19:37:31.864" /><!-- duration: 0ms -->
+  <step title="Creating temporary deployment" date="2025-07-15T19:37:31.880" /><!-- duration: 67ms -->
+  <step title="Performing fetch based deployment" date="2025-07-15T19:37:31.958" >
+    <step title="Fetching changes." date="2025-07-15T19:37:32.239" /><!-- duration: 16ms -->
+    <step title="Before sending BuildRequestReceived status to /api/updatedeploystatus" date="2025-07-15T19:37:34.788" /><!-- duration: 17ms -->
+    <step title="DeploymentManager.Deploy(id:3436e5533a074540d8c8185eda650544d3f6748f)" date="2025-07-15T19:37:34.900" >
+      <step title="Collecting changeset information" date="2025-07-15T19:37:34.944" /><!-- duration: 63ms -->
+      <step title="Updating submodules" date="2025-07-15T19:37:35.022" >
+        <step title="Updating submodules." date="2025-07-15T19:37:35.179" /><!-- duration: 17ms -->
+      </step><!-- duration: 193ms -->
+      <step title="Preparing deployment for commit id &apos;3436e5533a&apos;." date="2025-07-15T19:37:35.339" /><!-- duration: 11ms -->
+      <step title="Determining deployment builder" date="2025-07-15T19:37:35.510" >
+        <step title="Builder is CustomBuilder" date="2025-07-15T19:37:35.522" /><!-- duration: 0ms -->
+      </step><!-- duration: 29ms -->
+      <step title="Copying SSH keys" date="2025-07-15T19:37:35.616" /><!-- duration: 16ms -->
+      <step title="Building" date="2025-07-15T19:37:35.650" >
+        <step title="Running custom deployment command..." date="2025-07-15T19:37:35.761" /><!-- duration: 11ms -->
+        <step title="Running deployment command..." date="2025-07-15T19:37:35.913" /><!-- duration: 17ms -->
+        <step title="Command: deploy.cmd" date="2025-07-15T19:37:35.949" /><!-- duration: 57ms -->
+        <step title="Executing external process" date="2025-07-15T19:37:36.148" type="process" path="starter.cmd" arguments="deploy.cmd" >
+          <step title="Handling ASP.NET Core Web Application deployment." date="2025-07-15T19:37:38.116" /><!-- duration: 0ms -->
+          <step title="  Determining projects to restore..." date="2025-07-15T19:37:48.179" /><!-- duration: 17ms -->
+          <step title="  All projects are up-to-date for restore." date="2025-07-15T19:37:51.196" /><!-- duration: 0ms -->
+          <step title="C:\home\site\repository\Backend\Services\Interfaces\IFileValidationService.cs(8,22): error CS0101: The namespace &apos;Backend.Services&apos; already contains a definition for &apos;IFileValidationService&apos; [C:\home\site\repository\Backend\Backend.csproj]" date="2025-07-15T19:38:36.891" /><!-- duration: 12ms -->
+          <step title="C:\home\site\repository\Backend\Services\Interfaces\IFileValidationService.cs(16,51): error CS0111: Type &apos;IFileValidationService&apos; already defines a member called &apos;ValidateFileAsync&apos; with the same parameter types [C:\home\site\repository\Backend\Backend.csproj]" date="2025-07-15T19:38:36.920" /><!-- duration: 19ms -->
+          <step title="C:\home\site\repository\Backend\Services\Interfaces\IFileValidationService.cs(23,14): error CS0111: Type &apos;IFileValidationService&apos; already defines a member called &apos;IsValidFileExtension&apos; with the same parameter types [C:\home\site\repository\Backend\Backend.csproj]" date="2025-07-15T19:38:36.968" /><!-- duration: 0ms -->
+          <step title="Failed exitCode=1, command=dotnet publish &quot;C:\home\site\repository\Backend\Backend.csproj&quot; --configuration Release --output &quot;C:\local\Temp\8ddc3d70cbd0e20&quot; --no-restore" date="2025-07-15T19:38:38.142" /><!-- duration: 12ms -->
+          <step title="An error has occurred during web site deployment." date="2025-07-15T19:38:38.186" /><!-- duration: 19ms -->
+          <step title="Process dump" date="2025-07-15T19:38:38.357" exitCode="255" type="processOutput" /><!-- duration: 17ms -->
+        </step><!-- duration: 62226ms -->
+        <step title="
+C:\Program Files (x86)\SiteExtensions\Kudu\103.250502.001\bin\Scripts\starter.cmd deploy.cmd DEPLOYMENTINFO: deployer = GitHub, os = windows, sku = Standard, siteName = site-net, siteHostName = site-net-rrai-blue-fsgabaardkdhhnhf.centralus-01.azurewebsites.net, deploymentStatus = Error" date="2025-07-15T19:38:38.422" /><!-- duration: 29ms -->
+        <step title="Error occurred" date="2025-07-15T19:38:38.470" type="error" text="
+C:\Program Files (x86)\SiteExtensions\Kudu\103.250502.001\bin\Scripts\starter.cmd deploy.cmd" stackTrace="   at Kudu.Core.Infrastructure.Executable.ExecuteInternal(ITracer tracer, Func`2 onWriteOutput, Func`2 onWriteError, Encoding encoding, String arguments, Object[] args)
+   at Kudu.Core.Infrastructure.Executable.ExecuteWithProgressWriter(ILogger logger, ITracer tracer, String arguments, Object[] args)
+   at Kudu.Core.Deployment.Generator.ExternalCommandBuilder.RunCommand(DeploymentContext context, String command, Boolean ignoreManifest, String message)" /><!-- duration: 29ms -->
+      </step><!-- duration: 63164ms -->
+      <step title="Error occurred" date="2025-07-15T19:38:38.826" type="error" text="
+C:\Program Files (x86)\SiteExtensions\Kudu\103.250502.001\bin\Scripts\starter.cmd deploy.cmd" stackTrace="   at Kudu.Core.Infrastructure.Executable.ExecuteInternal(ITracer tracer, Func`2 onWriteOutput, Func`2 onWriteError, Encoding encoding, String arguments, Object[] args)
+   at Kudu.Core.Infrastructure.Executable.ExecuteWithProgressWriter(ILogger logger, ITracer tracer, String arguments, Object[] args)
+   at Kudu.Core.Deployment.Generator.ExternalCommandBuilder.RunCommand(DeploymentContext context, String command, Boolean ignoreManifest, String message)
+   at Kudu.Core.Deployment.Generator.CustomBuilder.Build(DeploymentContext context)
+--- End of stack trace from previous location where exception was thrown ---
+   at System.Runtime.CompilerServices.TaskAwaiter.ThrowForNonSuccess(Task task)
+   at System.Runtime.CompilerServices.TaskAwaiter.HandleNonSuccessAndDebuggerNotification(Task task)
+   at System.Runtime.CompilerServices.TaskAwaiter.ValidateEnd(Task task)
+   at Kudu.Core.Deployment.DeploymentManager.&lt;Build&gt;d__38.MoveNext()" /><!-- duration: 17ms -->
+      <step title="Deployment Failed. DEPLOYMENTINFO: deployer = GitHub, os = windows, sku = Standard, siteName = site-net, siteHostName = site-net-rrai-blue-fsgabaardkdhhnhf.centralus-01.azurewebsites.net, deploymentStatus = Failed" date="2025-07-15T19:38:38.873" /><!-- duration: 0ms -->
+    </step><!-- duration: 63990ms -->
+    <step title="Cleaning up temp files" date="2025-07-15T19:38:38.909" /><!-- duration: 10ms -->
+  </step><!-- duration: 67028ms -->
+  <step title="LockFile &apos;C:\home\site\locks\deployments.lock&apos; released" date="2025-07-15T19:38:38.998" /><!-- duration: 17ms -->
+  <step title="Deleting shutdown sentinel file" date="2025-07-15T19:38:39.033" SemaphoreCount="8" /><!-- duration: 28ms -->
+</step><!-- duration: 67339ms -->

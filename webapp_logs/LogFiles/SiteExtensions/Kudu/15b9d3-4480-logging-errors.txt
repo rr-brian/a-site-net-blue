@@ -1,0 +1,5 @@
+2025-07-21T02:48:26
+System.ApplicationException: The trace listener AzureBlobTraceListener is disabled. ---> System.InvalidOperationException: The SAS URL for the cloud storage account is not specified. Use the environment variable 'DIAGNOSTICS_AZUREBLOBCONTAINERSASURL' to define it.
+   at Microsoft.WindowsAzure.WebSites.Diagnostics.AzureBlobTraceListener.RefreshConfig()
+   --- End of inner exception stack trace ---
+

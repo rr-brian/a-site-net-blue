@@ -1,0 +1,21 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<deployment>
+  <id>bbac3ebb906f053fd2256c7e177ac1454e458c9d</id>
+  <author>Brian Worthington</author>
+  <deployer>GitHub</deployer>
+  <authorEmail>worthington.brian@realtyts.com</authorEmail>
+  <message>Fix file upload error when adding documents to ongoing chat conversations
+</message>
+  <progress></progress>
+  <status>Success</status>
+  <statusText></statusText>
+  <lastSuccessEndTime>2025-07-17T13:10:18.6720991Z</lastSuccessEndTime>
+  <receivedTime>2025-07-17T13:08:33.4240123Z</receivedTime>
+  <startTime>2025-07-17T13:08:34.3620225Z</startTime>
+  <endTime>2025-07-17T13:10:18.6720991Z</endTime>
+  <complete>True</complete>
+  <is_temp>False</is_temp>
+  <is_readonly>False</is_readonly>
+  <project_type>CUSTOM DEPLOYMENT</project_type>
+  <vsproject_id></vsproject_id>
+</deployment>

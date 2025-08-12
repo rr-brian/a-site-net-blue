@@ -1,0 +1,206 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "appName": {
+      "type": "string",
+      "defaultValue": "ai-document-chat",
+      "metadata": {
+        "description": "Name of the web application"
+      }
+    },
+    "environment": {
+      "type": "string",
+      "defaultValue": "prod",
+      "allowedValues": ["dev", "staging", "prod"],
+      "metadata": {
+        "description": "Environment name"
+      }
+    },
+    "location": {
+      "type": "string",
+      "defaultValue": "[resourceGroup().location]",
+      "metadata": {
+        "description": "Location for all resources"
+      }
+    },
+    "entraIdTenantId": {
+      "type": "string",
+      "metadata": {
+        "description": "Azure AD Tenant ID"
+      }
+    },
+    "entraIdClientId": {
+      "type": "string",
+      "metadata": {
+        "description": "Azure AD Application Client ID"
+      }
+    },
+    "openAiEndpoint": {
+      "type": "string",
+      "metadata": {
+        "description": "Azure OpenAI endpoint URL"
+      }
+    },
+    "openAiApiKey": {
+      "type": "securestring",
+      "metadata": {
+        "description": "Azure OpenAI API key"
+      }
+    }
+  },
+  "variables": {
+    "appServicePlanName": "[concat(parameters('appName'), '-', parameters('environment'), '-plan')]",
+    "webAppName": "[concat(parameters('appName'), '-', parameters('environment'))]",
+    "stagingSlotName": "blue"
+  },
+  "resources": [
+    {
+      "type": "Microsoft.Web/serverfarms",
+      "apiVersion": "2021-02-01",
+      "name": "[variables('appServicePlanName')]",
+      "location": "[parameters('location')]",
+      "sku": {
+        "name": "S1",
+        "tier": "Standard",
+        "size": "S1",
+        "family": "S",
+        "capacity": 1
+      },
+      "properties": {
+        "perSiteScaling": false,
+        "elasticScaleEnabled": false,
+        "maximumElasticWorkerCount": 1,
+        "isSpot": false,
+        "reserved": false,
+        "isXenon": false,
+        "hyperV": false,
+        "targetWorkerCount": 0,
+        "targetWorkerSizeId": 0
+      }
+    },
+    {
+      "type": "Microsoft.Web/sites",
+      "apiVersion": "2021-02-01",
+      "name": "[variables('webAppName')]",
+      "location": "[parameters('location')]",
+      "dependsOn": [
+        "[resourceId('Microsoft.Web/serverfarms', variables('appServicePlanName'))]"
+      ],
+      "properties": {
+        "enabled": true,
+        "hostNameSslStates": [
+          {
+            "name": "[concat(variables('webAppName'), '.azurewebsites.net')]",
+            "sslState": "Disabled",
+            "hostType": "Standard"
+          }
+        ],
+        "serverFarmId": "[resourceId('Microsoft.Web/serverfarms', variables('appServicePlanName'))]",
+        "reserved": false,
+        "isXenon": false,
+        "hyperV": false,
+        "siteConfig": {
+          "numberOfWorkers": 1,
+          "acrUseManagedIdentityCreds": false,
+          "alwaysOn": true,
+          "http20Enabled": false,
+          "functionAppScaleLimit": 0,
+          "minimumElasticInstanceCount": 0,
+          "appSettings": [
+            {
+              "name": "ASPNETCORE_ENVIRONMENT",
+              "value": "Production"
+            },
+            {
+              "name": "EntraId__TenantId",
+              "value": "[parameters('entraIdTenantId')]"
+            },
+            {
+              "name": "EntraId__ClientId",
+              "value": "[parameters('entraIdClientId')]"
+            },
+            {
+              "name": "AzureOpenAI__Endpoint",
+              "value": "[parameters('openAiEndpoint')]"
+            },
+            {
+              "name": "AzureOpenAI__ApiKey",
+              "value": "[parameters('openAiApiKey')]"
+            }
+          ]
+        },
+        "scmSiteAlsoStopped": false,
+        "clientAffinityEnabled": true,
+        "clientCertEnabled": false,
+        "hostNamesDisabled": false,
+        "httpsOnly": true,
+        "redundancyMode": "None",
+        "storageAccountRequired": false
+      }
+    },
+    {
+      "type": "Microsoft.Web/sites/slots",
+      "apiVersion": "2021-02-01",
+      "name": "[concat(variables('webAppName'), '/', variables('stagingSlotName'))]",
+      "location": "[parameters('location')]",
+      "dependsOn": [
+        "[resourceId('Microsoft.Web/sites', variables('webAppName'))]"
+      ],
+      "properties": {
+        "enabled": true,
+        "serverFarmId": "[resourceId('Microsoft.Web/serverfarms', variables('appServicePlanName'))]",
+        "reserved": false,
+        "isXenon": false,
+        "hyperV": false,
+        "siteConfig": {
+          "numberOfWorkers": 1,
+          "acrUseManagedIdentityCreds": false,
+          "alwaysOn": true,
+          "http20Enabled": false,
+          "functionAppScaleLimit": 0,
+          "minimumElasticInstanceCount": 0,
+          "appSettings": [
+            {
+              "name": "ASPNETCORE_ENVIRONMENT",
+              "value": "Staging"
+            },
+            {
+              "name": "EntraId__TenantId",
+              "value": "[parameters('entraIdTenantId')]"
+            },
+            {
+              "name": "EntraId__ClientId",
+              "value": "[parameters('entraIdClientId')]"
+            },
+            {
+              "name": "AzureOpenAI__Endpoint",
+              "value": "[parameters('openAiEndpoint')]"
+            },
+            {
+              "name": "AzureOpenAI__ApiKey",
+              "value": "[parameters('openAiApiKey')]"
+            }
+          ]
+        },
+        "scmSiteAlsoStopped": false,
+        "clientAffinityEnabled": true,
+        "clientCertEnabled": false,
+        "hostNamesDisabled": false,
+        "httpsOnly": true,
+        "redundancyMode": "None",
+        "storageAccountRequired": false
+      }
+    }
+  ],
+  "outputs": {
+    "webAppUrl": {
+      "type": "string",
+      "value": "[concat('https://', variables('webAppName'), '.azurewebsites.net')]"
+    },
+    "stagingSlotUrl": {
+      "type": "string",
+      "value": "[concat('https://', variables('webAppName'), '-', variables('stagingSlotName'), '.azurewebsites.net')]"
+    }
+  }
+}

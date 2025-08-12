@@ -1,0 +1,21 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<deployment>
+  <id>96056997d05d7dbfab4fe83ae07da139939a310f</id>
+  <author>Brian Worthington</author>
+  <deployer>GitHub</deployer>
+  <authorEmail>worthington.brian@realtyts.com</authorEmail>
+  <message>Fix EnhanceChunksWithMetadata method visibility from private to public to properly implement IDocumentChunkingService interface
+</message>
+  <progress></progress>
+  <status>Success</status>
+  <statusText></statusText>
+  <lastSuccessEndTime>2025-07-15T21:32:22.6279126Z</lastSuccessEndTime>
+  <receivedTime>2025-07-15T21:31:15.5932761Z</receivedTime>
+  <startTime>2025-07-15T21:31:15.9667578Z</startTime>
+  <endTime>2025-07-15T21:32:22.6279126Z</endTime>
+  <complete>True</complete>
+  <is_temp>False</is_temp>
+  <is_readonly>False</is_readonly>
+  <project_type>CUSTOM DEPLOYMENT</project_type>
+  <vsproject_id></vsproject_id>
+</deployment>
