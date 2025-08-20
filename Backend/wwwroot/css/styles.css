@@ -7,7 +7,7 @@
 
 body {
     font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-    background: linear-gradient(to bottom, #b6ccd7, #165540);
+    background: linear-gradient(to bottom, #f5f7fa, #c3cfe2);
     color: #333;
     line-height: 1.6;
     display: flex;
@@ -264,7 +264,7 @@ main {
 .chat-input-container {
     display: flex;
     padding: 20px 24px;
-    background: linear-gradient(135deg, #b6ccd7 0%, #a8c0cc 100%);
+    background: linear-gradient(135deg, #165540 0%, #1e6b4a 100%);
     border-top: 1px solid rgba(255, 255, 255, 0.2);
     gap: 16px;
     box-shadow: 0 -2px 12px rgba(0, 0, 0, 0.08);
@@ -460,8 +460,7 @@ main {
     
     .chat-input-container {
         padding: 10px;
-        background-color: #b6ccd7 !important;
-        background: #b6ccd7 !important;
+        background: linear-gradient(135deg, #165540 0%, #1e6b4a 100%) !important;
     }
     
     #userInput {

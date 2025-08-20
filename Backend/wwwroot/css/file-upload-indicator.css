@@ -94,8 +94,8 @@
 
 /* Input area file indicator */
 .chat-input-container.with-file {
-    background-color: #b6ccd7 !important;
-    border-top: 1px solid #3a668c;
+    background: linear-gradient(135deg, #165540 0%, #1e6b4a 100%) !important;
+    border-top: 1px solid rgba(255, 255, 255, 0.2);
 }
 
 .file-indicator-badge {

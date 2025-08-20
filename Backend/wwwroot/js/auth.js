@@ -143,9 +143,11 @@ async function initializeAuth() {
             msalInstance.setActiveAccount(currentUser);
             
             try {
-                await acquireTokenSilently();
-                updateUIForAuthenticatedUser();
-                return true;
+                const token = await acquireTokenSilently();
+                if (token) {
+                    updateUIForAuthenticatedUser();
+                    return true;
+                }
             } catch (error) {
                 console.log('Silent authentication failed:', error);
                 // Fall through to show login UI
@@ -216,13 +218,10 @@ async function acquireTokenSilently() {
         
         // If silent acquisition fails, try interactive
         if (error instanceof msal.InteractionRequiredAuthError) {
-            try {
-                const response = await msalInstance.acquireTokenRedirect(request);
-                return response.accessToken;
-            } catch (redirectError) {
-                console.error('Token redirect failed:', redirectError);
-                throw redirectError;
-            }
+            console.log('Interaction required, initiating redirect...');
+            // For redirect flow, we don't get a return value immediately
+            await msalInstance.acquireTokenRedirect(request);
+            return null; // Will be handled on redirect return
         }
         throw error;
     }
@@ -236,23 +235,26 @@ async function getAccessToken() {
         // Check if user is still authenticated
         if (!currentUser || !msalInstance) {
             console.log('No authenticated user or MSAL instance available');
-            showAuthError('Please sign in to continue.');
-            showLoginUI();
             return null;
         }
         
-        return await acquireTokenSilently();
+        // Check if config is loaded
+        if (!configLoaded) {
+            console.log('Auth config not loaded yet');
+            return null;
+        }
+        
+        const token = await acquireTokenSilently();
+        if (!token) {
+            console.log('No token received from silent acquisition');
+            return null;
+        }
+        
+        return token;
     } catch (error) {
         console.error('Failed to get access token:', error);
         
-        // Check if it's an authentication error that requires re-login
-        if (error.message && error.message.includes('No user account available')) {
-            showAuthError('Session expired. Please sign in again.');
-        } else {
-            showAuthError('Failed to get access token. Please sign in again.');
-        }
-        
-        showLoginUI();
+        // Don't show error UI immediately - let the calling code handle it
         return null;
     }
 }

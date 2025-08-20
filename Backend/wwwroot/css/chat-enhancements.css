@@ -74,8 +74,8 @@
 /* Enhanced chat input area */
 .chat-input-container {
     padding: 16px;
-    background-color: #b6ccd7 !important;
-    border-top: 1px solid #eaeaea;
+    background: linear-gradient(135deg, #165540 0%, #1e6b4a 100%) !important;
+    border-top: 1px solid rgba(255, 255, 255, 0.2);
     display: flex;
     gap: 12px;
     align-items: center;
