@@ -13,7 +13,7 @@ namespace Backend.Controllers
 {
     [ApiController]
     [Route("api/config")]
-    [Authorize]
+    // Temporarily removed [Authorize] to allow anonymous access to /api/config/auth endpoint
     public class ConfigController : ControllerBase
     {
         private readonly ILogger<ConfigController> _logger;
@@ -31,6 +31,7 @@ namespace Backend.Controllers
         }
 
         [HttpGet]
+        [Authorize] // Add authorization back for sensitive config endpoints
         public IActionResult GetConfiguration()
         {
             try
@@ -56,6 +57,7 @@ namespace Backend.Controllers
         }
         
         [HttpGet("test-openai")]
+        [Authorize] // Add authorization back for sensitive endpoints
         public async Task<IActionResult> TestOpenAI()
         {
             try
@@ -76,6 +78,7 @@ namespace Backend.Controllers
         }
         
         [HttpGet("diagnostic")]
+        [Authorize] // Add authorization back for sensitive endpoints
         public IActionResult ConfigDiagnostic()
         {
             try
