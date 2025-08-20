@@ -216,8 +216,13 @@ async function acquireTokenSilently() {
         
         // If silent acquisition fails, try interactive
         if (error instanceof msal.InteractionRequiredAuthError) {
-            const response = await msalInstance.acquireTokenRedirect(request);
-            return response.accessToken;
+            try {
+                const response = await msalInstance.acquireTokenRedirect(request);
+                return response.accessToken;
+            } catch (redirectError) {
+                console.error('Token redirect failed:', redirectError);
+                throw redirectError;
+            }
         }
         throw error;
     }
@@ -228,10 +233,25 @@ async function acquireTokenSilently() {
  */
 async function getAccessToken() {
     try {
+        // Check if user is still authenticated
+        if (!currentUser || !msalInstance) {
+            console.log('No authenticated user or MSAL instance available');
+            showAuthError('Please sign in to continue.');
+            showLoginUI();
+            return null;
+        }
+        
         return await acquireTokenSilently();
     } catch (error) {
         console.error('Failed to get access token:', error);
-        showAuthError('Failed to get access token. Please sign in again.');
+        
+        // Check if it's an authentication error that requires re-login
+        if (error.message && error.message.includes('No user account available')) {
+            showAuthError('Session expired. Please sign in again.');
+        } else {
+            showAuthError('Failed to get access token. Please sign in again.');
+        }
+        
         showLoginUI();
         return null;
     }

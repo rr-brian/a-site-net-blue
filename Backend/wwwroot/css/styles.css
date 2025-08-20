@@ -108,7 +108,7 @@ main {
 
 /* Chat container */
 .chat-container {
-    max-width: 95%; /* Use more screen width */
+    max-width: 80%; /* Reduced from 95% for better readability */
     width: 100%;
     margin: 0 auto;
     background-color: #fff;
@@ -425,7 +425,7 @@ main {
 /* Desktop responsive design */
 @media (min-width: 1200px) {
     .chat-container {
-        max-width: 98%; /* Use almost full screen width on large desktops */
+        max-width: 85%; /* Reduced from 98% for better readability */
         height: 88vh; /* Much taller on large screens */
     }
 }

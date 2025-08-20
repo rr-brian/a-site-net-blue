@@ -55,7 +55,7 @@
     max-width: 400px;
     width: 90%;
     text-align: center;
-    /* Use flexbox centering instead of absolute positioning */
+    margin: auto;
 }
 
 .login-card .logo-container {
