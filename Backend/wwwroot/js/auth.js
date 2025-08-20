@@ -83,8 +83,16 @@ async function fetchAuthConfig() {
         msalConfig.auth.clientId = config.clientId;
         msalConfig.auth.authority = config.authority;
         
-        // Update API request scopes
+        // Update API request scopes - force clear any cached scopes
         apiRequest.scopes = [config.apiScope];
+        
+        // Clear localStorage cache to remove old tokens
+        localStorage.removeItem('msal.token.keys');
+        localStorage.removeItem('msal.account.keys');
+        localStorage.removeItem('msal.idtoken');
+        localStorage.removeItem('msal.accesstoken');
+        
+        console.log('Cleared cached tokens with old scopes');
         
         configLoaded = true;
         return true;
