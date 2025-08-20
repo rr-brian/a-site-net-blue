@@ -16,7 +16,7 @@ namespace Backend.Controllers
     /// </summary>
     [ApiController]
     [Route("api/[controller]")]
-    // Temporarily removed [Authorize] for testing
+    [Authorize] // Re-enable authorization for chat endpoints
     public class ChatController : ControllerBase
     {
         private readonly ILogger<ChatController> _logger;

@@ -41,10 +41,9 @@
     height: 100%;
     background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
     display: flex;
-    justify-content: center;
     align-items: center;
-    z-index: 9998;
-    box-sizing: border-box;
+    justify-content: center;
+    z-index: 1000;
     padding: 20px;
 }
 
@@ -56,11 +55,7 @@
     max-width: 400px;
     width: 90%;
     text-align: center;
-    /* Improved centering technique */
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
+    /* Use flexbox centering instead of absolute positioning */
 }
 
 .login-card .logo-container {

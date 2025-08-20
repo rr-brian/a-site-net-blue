@@ -18,7 +18,7 @@ namespace Backend.Controllers
 {
     [ApiController]
     [Route("api/document-chat")]
-    // Temporarily removed [Authorize] for testing - same as ChatController
+    [Authorize] // Re-enable authorization for document chat endpoints
     public class DocumentChatController : ControllerBase
     {
         private readonly ILogger<DocumentChatController> _logger;
