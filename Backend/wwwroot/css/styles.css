@@ -216,7 +216,7 @@ main {
     display: flex;
     flex-direction: column;
     gap: 20px;
-    background: linear-gradient(to bottom, #fafafa 0%, #f5f5f5 100%);
+    background: #b6ccd7;
 }
 
 .message {

@@ -177,12 +177,16 @@ namespace Backend.Controllers
                 }
                 
                 // Create auth config for the frontend
+                // Force use of Microsoft Graph scope to avoid tenant-specific API issues
                 var authConfig = new AuthConfig
                 {
                     ClientId = clientId,
                     Authority = $"https://login.microsoftonline.com/{tenantId}",
-                    ApiScope = scopes ?? "https://graph.microsoft.com/User.Read"
+                    ApiScope = "https://graph.microsoft.com/User.Read"
                 };
+                
+                // Log the scope being used for debugging
+                _logger.LogInformation("Using API scope: {ApiScope}", authConfig.ApiScope);
                 
                 return Ok(authConfig);
             }
