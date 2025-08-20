@@ -86,11 +86,13 @@ async function fetchAuthConfig() {
         // Update API request scopes - force clear any cached scopes
         apiRequest.scopes = [config.apiScope];
         
-        // Clear ALL localStorage to ensure no cached tokens remain
-        localStorage.clear();
-        sessionStorage.clear();
+        // Clear only MSAL-specific tokens to avoid interfering with login flow
+        const msalKeys = Object.keys(localStorage).filter(key => 
+            key.includes('msal') && (key.includes('accesstoken') || key.includes('idtoken'))
+        );
+        msalKeys.forEach(key => localStorage.removeItem(key));
         
-        console.log('Cleared all browser storage to remove cached tokens');
+        console.log('Cleared MSAL token cache:', msalKeys);
         
         configLoaded = true;
         return true;
@@ -105,10 +107,12 @@ async function fetchAuthConfig() {
  */
 async function initializeAuth() {
     try {
-        // Clear any existing MSAL cached tokens first to prevent old scope issues
-        const msalKeys = Object.keys(localStorage).filter(key => key.startsWith('msal'));
-        msalKeys.forEach(key => localStorage.removeItem(key));
-        console.log('Cleared MSAL cached tokens:', msalKeys);
+        // Only clear problematic cached tokens, not all MSAL data
+        const problematicKeys = Object.keys(localStorage).filter(key => 
+            key.includes('msal') && key.includes('api://d4c452c4-5324-40ff-b43b-25f3daa2a45c')
+        );
+        problematicKeys.forEach(key => localStorage.removeItem(key));
+        console.log('Cleared problematic cached tokens:', problematicKeys);
         
         // First fetch configuration from the server
         const configSuccess = await fetchAuthConfig();
