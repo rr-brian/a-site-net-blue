@@ -74,7 +74,7 @@
 /* Enhanced chat input area */
 .chat-input-container {
     padding: 16px;
-    background-color: #f8f9fa;
+    background-color: #b6ccd7 !important;
     border-top: 1px solid #eaeaea;
     display: flex;
     gap: 12px;
@@ -107,7 +107,7 @@
     width: 50px;
     height: 50px;
     border-radius: 50%;
-    background: linear-gradient(135deg, #0078d4, #0063b1);
+    background-color: #3a668c !important;
     color: white;
     border: none;
     cursor: pointer;
@@ -119,7 +119,7 @@
 }
 
 #sendButton:hover {
-    background: linear-gradient(135deg, #0063b1, #004e8c);
+    background-color: #2d5070 !important;
     transform: translateY(-2px);
     box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
 }

@@ -30,6 +30,42 @@ let msalInstance;
 let currentUser = null;
 let configLoaded = false;
 
+// Ensure MSAL is available
+function ensureMSAL() {
+    return new Promise((resolve, reject) => {
+        // Check if MSAL is already available
+        if (typeof msal !== 'undefined') {
+            resolve();
+            return;
+        }
+        
+        // If not available, wait for it to load
+        console.log('Waiting for MSAL library to load...');
+        let checkCount = 0;
+        const maxChecks = 20; // Maximum number of checks (10 seconds)
+        
+        const checkMSAL = () => {
+            if (typeof msal !== 'undefined') {
+                console.log('MSAL library loaded successfully');
+                resolve();
+                return;
+            }
+            
+            checkCount++;
+            if (checkCount >= maxChecks) {
+                reject(new Error('MSAL library failed to load after multiple attempts'));
+                return;
+            }
+            
+            // Check again in 500ms
+            setTimeout(checkMSAL, 500);
+        };
+        
+        // Start checking
+        checkMSAL();
+    });
+}
+
 /**
  * Fetch authentication configuration from the server
  */
@@ -78,6 +114,15 @@ async function initializeAuth() {
             return false;
         }
 
+        // Ensure MSAL is loaded before proceeding
+        try {
+            await ensureMSAL();
+        } catch (error) {
+            console.error('Failed to load MSAL library:', error);
+            showConfigurationError('Microsoft Authentication Library could not be loaded. Please refresh the page or try again later.');
+            return false;
+        }
+
         // Initialize MSAL
         msalInstance = new msal.PublicClientApplication(msalConfig);
         await msalInstance.initialize();
@@ -123,8 +168,11 @@ async function initializeAuth() {
  */
 async function login() {
     try {
+        // In MSAL.js v3, we don't need to check interaction status the same way
+        // Just proceed with login redirect
+        
         showLoadingState('Signing in...');
-        const response = await msalInstance.loginRedirect(loginRequest);
+        await msalInstance.loginRedirect(loginRequest);
         // Redirect will happen, so this code won't execute
     } catch (error) {
         console.error('Login failed:', error);

@@ -1,0 +1,38 @@
+{
+  "$id": "1",
+  "fileName": "44650.pdf",
+  "chunks": {
+    "$id": "2",
+    "$values": [
+      "\n[PAGE 1 OF 1]\n\r\n 44650 \n07/03/25\nManagement Professionals -Sierra Pointe Apartments Management Professionals -Sierra Pointe Apartments\n10607 Net 15 147487\n--- 07/01/2025\tTicket 74417 ---\nCarpet - Spot Clean #403 Bradford\nCarpet - Spot Clean #344 Vista\nCarpet - Spot Clean #241 Westown\nRequested by Margie Livemore\nINVOICE NO.\nDATE\nTERMS: CUSTOMER NO.\nDescription Quantity\nUnit of\nMeasure\nAmount Price\n[IMPORTANT TENANT DATA] Heritage Building Maintenance\n75.00\n65.00\n75.00\n7171 Woodland Ave\nWest Des Moines, IA 50266\n5801 Thornton Ave Suite 100\nDes Moines, Iowa 50321\n7171 Woodland Ave\nWest Des Moines, IA 50266\nJOB NO.\n10607\n[IMPORTANT TENANT DATA] Please remit payment to: Heritage Building Maintenance 5801 Thornton Ave Suite 100 Des Moines, IA 50321\nCUSTOMER SERVICE LOCATION\nP.O. NO.\nThank you.  We appreciate your business!\nAll payments made by credit card will be charged a 4% service fee.\n[IMPORTANT TENANT DATA] Make all checks payable to Heritage Building Maintenance.\nTotal due in 15 days. Past due invoices are subject to a 1.5% \nSub-Total\n 15.05 \n$230.05 \n 215.00 \nTOTAL\nSales Tax"
+    ]
+  },
+  "chunkMetadata": {
+    "$id": "3",
+    "$values": [
+      {
+        "$id": "4",
+        "chunkIndex": 0,
+        "startPosition": 0,
+        "endPosition": 0,
+        "pages": {
+          "$id": "5",
+          "$values": [
+            1
+          ]
+        },
+        "keyEntities": {
+          "$id": "6",
+          "$values": []
+        },
+        "relevanceScore": 0
+      }
+    ]
+  },
+  "totalLength": 0,
+  "entityIndex": {
+    "$id": "7"
+  },
+  "summary": "",
+  "uploadTime": "0001-01-01T00:00:00"
+}

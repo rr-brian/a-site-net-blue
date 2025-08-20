@@ -49,104 +49,15 @@ function handleFileSelection(file, uploadButton, fileInput, chatMessages, userIn
     userInput.focus();
 }
 
-// Function to create a visual file upload indicator
+// Function to create a visual file upload indicator in the header
 function createFileUploadIndicator(file, chatMessages, uploadButton, fileInput, userInput) {
-    // Create the file upload indicator container
-    const fileIndicator = document.createElement('div');
-    fileIndicator.classList.add('file-upload-indicator');
-    fileIndicator.id = 'fileUploadIndicator';
-    
-    // Create file icon based on file type
-    const fileIcon = document.createElement('div');
-    fileIcon.classList.add('file-icon');
-    
-    // Determine file type and set appropriate icon
-    let iconClass = 'fa-file';
-    let fileTypeClass = '';
-    
-    if (file.name.endsWith('.pdf')) {
-        iconClass = 'fa-file-pdf';
-        fileTypeClass = 'pdf';
-    } else if (file.name.endsWith('.docx') || file.name.endsWith('.doc')) {
-        iconClass = 'fa-file-word';
-        fileTypeClass = 'docx';
-    } else if (file.name.endsWith('.xlsx') || file.name.endsWith('.xls')) {
-        iconClass = 'fa-file-excel';
-        fileTypeClass = 'xlsx';
+    // Update the document status indicator in the header instead of adding to chat
+    const documentStatus = document.getElementById('document-status');
+    if (documentStatus) {
+        documentStatus.style.display = 'inline-block';
+        documentStatus.innerHTML = `<i class="fas fa-file-alt"></i> ${file.name}`;
+        documentStatus.setAttribute('title', `Document loaded: ${file.name} (${formatFileSize(file.size)})`);
     }
-    
-    // Only add the fileTypeClass if it's not empty
-    if (fileTypeClass) {
-        fileIcon.classList.add(fileTypeClass);
-    }
-    
-    fileIcon.innerHTML = `<i class="fas ${iconClass}"></i>`;
-    
-    // Create file info section
-    const fileInfo = document.createElement('div');
-    fileInfo.classList.add('file-info');
-    
-    // Add file name
-    const fileName = document.createElement('div');
-    fileName.classList.add('file-name');
-    fileName.textContent = file.name;
-    
-    // Add file metadata
-    const fileMeta = document.createElement('div');
-    fileMeta.classList.add('file-meta');
-    
-    // Add file size
-    const fileSize = document.createElement('span');
-    fileSize.classList.add('file-size');
-    fileSize.textContent = formatFileSize(file.size);
-    
-    // Add file type
-    const fileType = document.createElement('span');
-    fileType.classList.add('file-type');
-    fileType.textContent = file.name.split('.').pop();
-    
-    // Add status indicator
-    const fileStatus = document.createElement('span');
-    fileStatus.classList.add('file-status');
-    
-    // Assemble file metadata
-    fileMeta.appendChild(fileStatus);
-    fileMeta.appendChild(fileSize);
-    fileMeta.appendChild(fileType);
-    
-    // Assemble file info
-    fileInfo.appendChild(fileName);
-    fileInfo.appendChild(fileMeta);
-    
-    // Create remove button
-    const removeButton = document.createElement('button');
-    removeButton.classList.add('remove-file');
-    removeButton.innerHTML = '<i class="fas fa-times"></i>';
-    removeButton.setAttribute('title', 'Remove file');
-    removeButton.addEventListener('click', () => {
-        resetFileAttachment(uploadButton, fileInput);
-        fileIndicator.remove();
-        
-        // Remove with-file class from chat input container
-        const chatInputContainer = userInput.closest('.chat-input-container');
-        if (chatInputContainer) {
-            chatInputContainer.classList.remove('with-file');
-        }
-        
-        // Remove badge from upload button
-        const badge = uploadButton.querySelector('.file-indicator-badge');
-        if (badge) {
-            badge.remove();
-        }
-    });
-    
-    // Assemble the file indicator
-    fileIndicator.appendChild(fileIcon);
-    fileIndicator.appendChild(fileInfo);
-    fileIndicator.appendChild(removeButton);
-    
-    // Add to chat messages container at the end
-    chatMessages.appendChild(fileIndicator);
     
     // Scroll to make the indicator visible
     chatMessages.scrollTop = chatMessages.scrollHeight;
@@ -178,6 +89,12 @@ function resetFileAttachment(uploadButton, fileInput) {
     const fileIndicator = document.getElementById('fileUploadIndicator');
     if (fileIndicator) {
         fileIndicator.remove();
+    }
+    
+    // Hide document status indicator
+    const documentStatus = document.getElementById('document-status');
+    if (documentStatus) {
+        documentStatus.style.display = 'none';
     }
     
     // Remove badge from upload button

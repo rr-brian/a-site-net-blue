@@ -47,6 +47,9 @@ builder.Services.AddSession(options =>
 // Register core services
 builder.Services.AddTransient<Backend.Services.Interfaces.IChatService, Backend.Services.ChatService>();
 builder.Services.AddSingleton<Backend.Services.Interfaces.IDocumentPersistenceService, Backend.Services.DocumentPersistenceService>();
+
+// Register controllers for DI resolution
+builder.Services.AddScoped<Backend.Controllers.DocumentChatController>();
 builder.Services.AddSingleton<Backend.Services.Interfaces.ISemanticChunker, Backend.Services.SemanticChunker>();
 builder.Services.AddTransient<Backend.Services.Interfaces.IDocumentProcessingService, Backend.Services.DocumentProcessingService>();
 builder.Services.AddSingleton<Backend.Services.Interfaces.IDocumentChunkingService, Backend.Services.DocumentChunkingService>();

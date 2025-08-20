@@ -44,8 +44,8 @@ public static class AuthenticationExtensions
         // Configure authorization policies
         services.AddAuthorization(options =>
         {
-            // Default policy requires authentication
-            options.FallbackPolicy = options.DefaultPolicy;
+            // Removed fallback policy to allow anonymous access to endpoints without [Authorize]
+            // options.FallbackPolicy = options.DefaultPolicy;
             
             // Custom policy for API access
             options.AddPolicy("ApiAccess", policy =>

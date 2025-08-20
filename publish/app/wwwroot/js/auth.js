@@ -168,8 +168,11 @@ async function initializeAuth() {
  */
 async function login() {
     try {
+        // In MSAL.js v3, we don't need to check interaction status the same way
+        // Just proceed with login redirect
+        
         showLoadingState('Signing in...');
-        const response = await msalInstance.loginRedirect(loginRequest);
+        await msalInstance.loginRedirect(loginRequest);
         // Redirect will happen, so this code won't execute
     } catch (error) {
         console.error('Login failed:', error);

@@ -4,6 +4,7 @@ using System;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using Backend.Services;
+using Backend.Services.Interfaces;
 using System.Threading.Tasks;
 using Backend.Models;
 using Backend.Configuration;
@@ -17,12 +18,12 @@ namespace Backend.Controllers
     {
         private readonly ILogger<ConfigController> _logger;
         private readonly IConfiguration _configuration;
-        private readonly ChatService _chatService;
+        private readonly IChatService _chatService;
         
         public ConfigController(
             ILogger<ConfigController> logger,
             IConfiguration configuration,
-            ChatService chatService)
+            IChatService chatService)
         {
             _logger = logger;
             _configuration = configuration;
@@ -143,10 +144,27 @@ namespace Backend.Controllers
             try
             {
                 // Get Entra ID configuration from app settings
-                var tenantId = _configuration["EntraId:TenantId"];
-                var clientId = _configuration["EntraId:ClientId"];
-                var audience = _configuration["EntraId:Audience"];
-                var scopes = _configuration["EntraId:Scopes"];
+                // Try both colon and double underscore notation for compatibility
+                var tenantId = _configuration["EntraId:TenantId"] ?? _configuration["EntraId__TenantId"];
+                var clientId = _configuration["EntraId:ClientId"] ?? _configuration["EntraId__ClientId"];
+                var audience = _configuration["EntraId:Audience"] ?? _configuration["EntraId__Audience"];
+                var scopes = _configuration["EntraId:Scopes"] ?? _configuration["EntraId__Scopes"];
+                
+                // Also try environment variables as fallback
+                tenantId = tenantId ?? Environment.GetEnvironmentVariable("ENTRA_ID_TENANT_ID");
+                clientId = clientId ?? Environment.GetEnvironmentVariable("ENTRA_ID_CLIENT_ID");
+                
+                // Log configuration values for debugging
+                _logger.LogInformation("Auth config: TenantId={TenantId}, ClientId={ClientId}, Audience={Audience}, Scopes={Scopes}",
+                    !string.IsNullOrEmpty(tenantId) ? "[SET]" : "[NOT SET]",
+                    !string.IsNullOrEmpty(clientId) ? "[SET]" : "[NOT SET]",
+                    !string.IsNullOrEmpty(audience) ? "[SET]" : "[NOT SET]",
+                    !string.IsNullOrEmpty(scopes) ? "[SET]" : "[NOT SET]");
+                
+                // Log actual values for debugging (first 8 chars only)
+                _logger.LogInformation("Auth config values: TenantId={TenantIdPrefix}, ClientId={ClientIdPrefix}",
+                    !string.IsNullOrEmpty(tenantId) ? tenantId.Substring(0, Math.Min(8, tenantId.Length)) + "..." : "null",
+                    !string.IsNullOrEmpty(clientId) ? clientId.Substring(0, Math.Min(8, clientId.Length)) + "..." : "null");
                 
                 // Check if configuration is available
                 if (string.IsNullOrEmpty(tenantId) || string.IsNullOrEmpty(clientId))
@@ -160,7 +178,7 @@ namespace Backend.Controllers
                 {
                     ClientId = clientId,
                     Authority = $"https://login.microsoftonline.com/{tenantId}",
-                    ApiScope = scopes ?? $"api://{audience}/access_as_user"
+                    ApiScope = scopes ?? $"api://{clientId}/access_as_user"
                 };
                 
                 return Ok(authConfig);
@@ -168,7 +186,7 @@ namespace Backend.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error retrieving auth configuration");
-                return StatusCode(500, new { error = "Error retrieving auth configuration" });
+                return StatusCode(500, new { error = "Error retrieving auth configuration", details = ex.Message });
             }
         }
     }

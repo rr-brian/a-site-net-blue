@@ -2,11 +2,14 @@
 # This script updates app settings for the blue slot without affecting production
 
 param(
-    [Parameter(Mandatory=$true)]
-    [string]$ResourceGroupName,
+    [Parameter(Mandatory=$false)]
+    [string]$ResourceGroupName = "rg-innovation",
     
-    [Parameter(Mandatory=$true)]
-    [string]$AppServiceName,
+    [Parameter(Mandatory=$false)]
+    [string]$AppServiceName = "site-net",
+    
+    [Parameter(Mandatory=$false)]
+    [string]$SlotName = "rrai-blue",
     
     [Parameter(Mandatory=$true)]
     [string]$TenantId,
@@ -41,18 +44,18 @@ if (-not $loginStatus) {
     az login
 }
 
-# Check if the blue slot exists
-Write-Host "Checking if blue slot exists..." -ForegroundColor Cyan
-$slotExists = az webapp deployment slot list --resource-group $ResourceGroupName --name $AppServiceName --query "[?name=='blue'].name" -o tsv
+# Check if the specified slot exists
+Write-Host "Checking if slot '$SlotName' exists..." -ForegroundColor Cyan
+$slotExists = az webapp deployment slot list --resource-group $ResourceGroupName --name $AppServiceName --query "[?name=='$SlotName'].name" -o tsv
 
 if (-not $slotExists) {
-    Write-Host "Blue slot does not exist. Creating it now..." -ForegroundColor Yellow
-    az webapp deployment slot create --resource-group $ResourceGroupName --name $AppServiceName --slot blue
-    Write-Host "Blue slot created." -ForegroundColor Green
+    Write-Host "Slot '$SlotName' does not exist. Creating it now..." -ForegroundColor Yellow
+    az webapp deployment slot create --resource-group $ResourceGroupName --name $AppServiceName --slot $SlotName
+    Write-Host "Slot '$SlotName' created." -ForegroundColor Green
 }
 
-# Update app settings for the blue slot
-Write-Host "Updating app settings for the blue slot..." -ForegroundColor Cyan
+# Update app settings for the specified slot
+Write-Host "Updating app settings for the slot '$SlotName'..." -ForegroundColor Cyan
 
 $settings = @(
     "EntraId__TenantId=$TenantId",
@@ -68,9 +71,19 @@ $settings = @(
     "AzureFunction__Key=$FunctionKey"
 )
 
-az webapp config appsettings set --resource-group $ResourceGroupName --name $AppServiceName --slot blue --settings $settings
+# Apply settings to the slot
+Write-Host "Applying settings to slot '$SlotName'..." -ForegroundColor Cyan
+az webapp config appsettings set --resource-group $ResourceGroupName --name $AppServiceName --slot $SlotName --settings $settings
 
-Write-Host "Blue slot configuration complete!" -ForegroundColor Green
+# Restart the slot to apply changes
+Write-Host "Restarting slot '$SlotName'..." -ForegroundColor Cyan
+az webapp restart --resource-group $ResourceGroupName --name $AppServiceName --slot $SlotName
+
+# Get the slot URL
+$slotUrl = az webapp deployment slot list --resource-group $ResourceGroupName --name $AppServiceName --query "[?name=='$SlotName'].hostNames[0]" -o tsv
+
+Write-Host "Configuration complete!" -ForegroundColor Green
+Write-Host "Slot URL: https://$slotUrl" -ForegroundColor Cyan
 Write-Host "Blue slot URL: https://$AppServiceName-blue.azurewebsites.net" -ForegroundColor Cyan
 Write-Host "Test the blue slot before swapping to production." -ForegroundColor Yellow
 
