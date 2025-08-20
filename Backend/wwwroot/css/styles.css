@@ -7,7 +7,7 @@
 
 body {
     font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-    background: linear-gradient(to bottom, #39668c, #192839);
+    background: linear-gradient(to bottom, #b6ccd7, #165540);
     color: #333;
     line-height: 1.6;
     display: flex;
@@ -15,14 +15,25 @@ body {
     min-height: 100vh;
 }
 
+#app-container {
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+    height: 100vh; /* Force full height */
+    position: relative; /* Added for footer positioning */
+}
+
 main {
     flex: 1;
-    padding: 20px 0;
+    padding: 20px 0 60px; /* Added bottom padding to prevent content from being hidden by footer */
+    display: flex;
+    flex-direction: column;
+    overflow-y: auto; /* Allow scrolling if content is too tall */
 }
 
 /* Header styles */
 .main-header {
-    background-color: #192839;
+    background-color: #165540;
     color: #fff;
     padding: 15px 0;
     box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
@@ -43,7 +54,7 @@ main {
 }
 
 .header-logo {
-    height: 40px;
+    height: 60px;
     margin-right: 15px;
 }
 
@@ -73,9 +84,31 @@ main {
     background-color: #3498db;
 }
 
+/* Footer styles */
+.main-footer {
+    background-color: #165540;
+    color: #fff;
+    padding: 15px 0;
+    text-align: center;
+    box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.1);
+    margin-top: auto; /* Use margin-top auto instead of absolute positioning */
+    width: 100%;
+}
+
+.footer-bottom {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 0 20px;
+}
+
+.footer-bottom p {
+    margin: 0;
+    font-size: 0.9rem;
+}
+
 /* Chat container */
 .chat-container {
-    max-width: 800px;
+    max-width: 1200px; /* Expanded from 800px for desktop */
     margin: 0 auto;
     background-color: #fff;
     border-radius: 10px;
@@ -83,7 +116,7 @@ main {
     overflow: hidden;
     display: flex;
     flex-direction: column;
-    height: 70vh;
+    height: 75vh; /* Increased from 70vh for better desktop experience */
     border: 1px solid rgba(255, 255, 255, 0.2);
 }
 
@@ -221,7 +254,7 @@ main {
 .chat-input-container {
     display: flex;
     padding: 16px;
-    background-color: #f9f9f9;
+    background-color: #b6ccd7;
     border-top: 1px solid #eaeaea;
     gap: 12px;
 }
@@ -245,7 +278,7 @@ main {
     width: 48px;
     height: 48px;
     border-radius: 50%;
-    background-color: #0078d4;
+    background-color: #3a668c;
     color: white;
     border: none;
     cursor: pointer;
@@ -256,7 +289,7 @@ main {
 }
 
 #sendButton:hover {
-    background-color: #006abc;
+    background-color: #2d5070;
 }
 
 #sendButton:active {
@@ -296,12 +329,7 @@ main {
     }
 }
 
-/* Footer styles */
-.main-footer {
-    background-color: #192839;
-    color: #ecf0f1;
-    padding: 20px 0;
-}
+/* Footer styles - removed duplicate */
 
 .footer-container {
     max-width: 1200px;
@@ -376,12 +404,36 @@ main {
     color: #ecf0f1;
 }
 
-/* Responsive design */
-@media (max-width: 768px) {
+/* Desktop responsive design */
+@media (min-width: 1200px) {
     .chat-container {
+        max-width: 90%; /* Use 90% of screen width on large desktops */
+        height: 80vh; /* Slightly taller on large screens */
+    }
+}
+
+/* Tablet and mobile responsive design */
+@media (max-width: 768px) {
+    #app-container {
         height: 100vh;
+        overflow: hidden; /* Prevent scrolling on mobile */
+    }
+    
+    main {
+        flex: 1;
+        padding: 10px 0 0; /* Remove bottom padding on mobile */
+        overflow: hidden;
+    }
+    
+    .chat-container {
+        height: calc(100vh - 80px); /* Reduced since footer is hidden and header is smaller */
         max-width: 100%;
         border-radius: 0;
+        margin: 0;
+    }
+    
+    .main-footer {
+        display: none; /* Hide footer completely on mobile */
     }
     
     body {
@@ -390,6 +442,8 @@ main {
     
     .chat-input-container {
         padding: 10px;
+        background-color: #b6ccd7 !important;
+        background: #b6ccd7 !important;
     }
     
     #userInput {
@@ -397,12 +451,37 @@ main {
     }
     
     .header-container {
-        flex-direction: column;
-        padding: 10px;
+        flex-direction: row; /* Keep horizontal layout */
+        padding: 5px 10px;
+        align-items: center;
+        justify-content: space-between;
     }
     
     .logo-container {
-        margin-bottom: 15px;
+        margin-bottom: 0;
+    }
+    
+    .logo-container h1 {
+        display: none; /* Hide header text on mobile */
+    }
+    
+    .header-logo {
+        height: 30px; /* Even smaller logo on mobile */
+    }
+    
+    .user-info {
+        display: flex;
+        align-items: center;
+        gap: 5px;
+    }
+    
+    .user-info span {
+        display: none; /* Hide username on mobile */
+    }
+    
+    .logout-button {
+        padding: 5px;
+        font-size: 14px;
     }
     
     .main-nav ul {
