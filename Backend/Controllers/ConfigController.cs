@@ -181,7 +181,7 @@ namespace Backend.Controllers
                 {
                     ClientId = clientId,
                     Authority = $"https://login.microsoftonline.com/{tenantId}",
-                    ApiScope = scopes ?? $"api://{clientId}/access_as_user"
+                    ApiScope = scopes ?? "https://graph.microsoft.com/User.Read"
                 };
                 
                 return Ok(authConfig);
