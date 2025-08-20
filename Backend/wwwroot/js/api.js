@@ -52,24 +52,17 @@ async function getAuthHeaders() {
             const accessToken = await window.authModule.getAccessToken();
             if (accessToken) {
                 headers['Authorization'] = `Bearer ${accessToken}`;
+                console.log('Added auth header with token');
             } else {
-                console.log('No access token available - user may need to sign in');
-                // If no token and user appears authenticated, show error
-                if (window.authModule.showAuthError) {
-                    window.authModule.showAuthError('Failed to get access token. Please sign in again.');
-                    window.authModule.showLoginUI();
-                }
-                throw new Error('Authentication required');
+                console.log('No access token available - proceeding without auth');
+                // Don't throw error, let the API call proceed
             }
         } catch (error) {
             console.error('Failed to get access token:', error);
-            // Show user-friendly error message
-            if (window.authModule.showAuthError) {
-                window.authModule.showAuthError('Authentication session expired. Please sign in again.');
-                window.authModule.showLoginUI();
-            }
-            throw new Error('Authentication required');
+            // Don't throw error, let the API call proceed and handle 401 response
         }
+    } else {
+        console.log('User not authenticated or auth module not available');
     }
 
     return headers;
