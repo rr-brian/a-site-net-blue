@@ -107,6 +107,11 @@ async function fetchAuthConfig() {
  */
 async function initializeAuth() {
     try {
+        // Clear any existing MSAL cached tokens first to prevent old scope issues
+        const msalKeys = Object.keys(localStorage).filter(key => key.startsWith('msal'));
+        msalKeys.forEach(key => localStorage.removeItem(key));
+        console.log('Cleared MSAL cached tokens:', msalKeys);
+        
         // First fetch configuration from the server
         const configSuccess = await fetchAuthConfig();
         if (!configSuccess) {
