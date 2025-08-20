@@ -88,13 +88,7 @@ main {
 
 /* Footer styles */
 .main-footer {
-    background-color: #165540;
-    color: #fff;
-    padding: 15px 0;
-    text-align: center;
-    box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.1);
-    margin-top: auto; /* Use margin-top auto instead of absolute positioning */
-    width: 100%;
+    display: none;
 }
 
 .footer-bottom {

@@ -200,8 +200,15 @@ namespace Backend.Controllers
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error processing chat request");
-                return StatusCode(500, new ChatResponse { Response = "An error occurred while processing your request." });
+                _logger.LogError(ex, "Error processing chat request: {ErrorMessage}", ex.Message);
+                _logger.LogError("Stack trace: {StackTrace}", ex.StackTrace);
+                
+                // Return more detailed error for debugging
+                return Ok(new ChatResponse { 
+                    Response = $"Error: {ex.Message}",
+                    DocumentInContext = false,
+                    DocumentInfo = null
+                });
             }
         }
 
