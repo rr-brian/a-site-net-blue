@@ -1,0 +1,54 @@
+name: Deploy to Azure Web App
+
+on:
+  push:
+    branches:
+      - net-ai-blue
+  workflow_dispatch:
+
+jobs:
+  build-and-deploy:
+    runs-on: windows-latest
+
+    steps:
+    - uses: actions/checkout@v3
+
+    - name: Set up .NET
+      uses: actions/setup-dotnet@v3
+      with:
+        dotnet-version: '9.0.x'
+
+    - name: Build with dotnet
+      run: dotnet build --configuration Release
+
+    - name: Publish
+      run: dotnet publish -c Release -o ./publish
+
+    - name: Deploy to Azure Web App
+      uses: azure/webapps-deploy@v3
+      with:
+        app-name: 'site-net'
+        slot-name: 'rrai-blue'
+        publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}
+        package: './publish'
+
+    - name: Update Azure App Service Environment Variables
+      uses: azure/CLI@v1
+      with:
+        azcliversion: 2.30.0
+        inlineScript: |
+          # Set OpenAI configuration
+          az webapp config appsettings set --resource-group rg-innovation --name site-net --slot rrai-blue --settings \
+            "AzureOpenAI__Endpoint=https://generalsearchai.openai.azure.com/" \
+            "AzureOpenAI__ApiKey=${{ secrets.OPENAI_API_KEY }}" \
+            "AzureOpenAI__DeploymentName=gpt-4.1" \
+            "AzureOpenAI__ApiVersion=2024-02-15-preview" \
+            "EntraId__TenantId=99848873-e61d-44cc-9862-d05151c567ab" \
+            "EntraId__ClientId=d4c452c4-5324-40ff-b43b-25f3daa2a45c" \
+            "EntraId__Instance=https://login.microsoftonline.com/" \
+            "EntraId__Domain=rrrealty.ai" \
+            "AzureFunction__Url=https://fn-conversationsave.azurewebsites.net/api/conversations/update" \
+            "AzureFunction__UserId=brian@rrrealty.ai" \
+            "AzureFunction__UserEmail=brian@rrrealty.ai"
+      env:
+        AZURE_CREDENTIALS: ${{ secrets.AZURE_CREDENTIALS }}
