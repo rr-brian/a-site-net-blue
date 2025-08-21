@@ -42,52 +42,20 @@ import { updateDocumentStatusIndicator } from './ui.js';
  * Helper function to get authentication headers for API calls
  */
 async function getAuthHeaders() {
-    const headers = {
+    // Skip authentication for chat endpoints since they no longer require it
+    console.log('Proceeding without authentication headers for chat API');
+    return {
         'Content-Type': 'application/json'
     };
-
-    // Check if authentication is available and get access token
-    if (window.authModule && window.authModule.isAuthenticated()) {
-        try {
-            const accessToken = await window.authModule.getAccessToken();
-            if (accessToken) {
-                headers['Authorization'] = `Bearer ${accessToken}`;
-                console.log('Added auth header with token');
-            } else {
-                console.log('No access token available - proceeding without auth');
-                // Don't throw error, let the API call proceed
-            }
-        } catch (error) {
-            console.error('Failed to get access token:', error);
-            // Don't throw error, let the API call proceed and handle 401 response
-        }
-    } else {
-        console.log('User not authenticated or auth module not available');
-    }
-
-    return headers;
 }
 
 /**
  * Helper function to get authentication headers for file upload (multipart/form-data)
  */
 async function getAuthHeadersForFileUpload() {
-    const headers = {};
-
-    // Check if authentication is available and get access token
-    if (window.authModule && window.authModule.isAuthenticated()) {
-        try {
-            const accessToken = await window.authModule.getAccessToken();
-            if (accessToken) {
-                headers['Authorization'] = `Bearer ${accessToken}`;
-            }
-        } catch (error) {
-            console.error('Failed to get access token for file upload:', error);
-            // Don't throw here - let the API call proceed and handle auth errors
-        }
-    }
-
-    return headers;
+    // Skip authentication for chat endpoints since they no longer require it
+    console.log('Proceeding without authentication headers for file upload');
+    return {};
 }
 
 // Ensure UI is updated to match the current document context state
