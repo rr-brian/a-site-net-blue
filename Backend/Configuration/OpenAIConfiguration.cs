@@ -31,14 +31,22 @@ namespace Backend.Configuration
                 
                 // Get deployment name from environment but validate it's a known working deployment
                 string envDeploymentName = Environment.GetEnvironmentVariable("OPENAI_DEPLOYMENT_NAME");
-                // IMPORTANT: Only "gpt-4.1" works in this Azure resource based on testing
-                if (envDeploymentName != null && envDeploymentName == "gpt-4.1")
+                string envEndpoint = Environment.GetEnvironmentVariable("OPENAI_ENDPOINT");
+                
+                // Check if we're using the GPT-5 service endpoint
+                if (!string.IsNullOrEmpty(envEndpoint) && envEndpoint.Contains("svc-gpt5"))
+                {
+                    // For GPT-5 service, use the correct deployment name
+                    DeploymentName = "gpt-5-preview";
+                    _logger.LogWarning("Detected GPT-5 endpoint, using deployment name 'gpt-5-preview'");
+                }
+                else if (envDeploymentName != null && envDeploymentName == "gpt-4.1")
                 {
                     DeploymentName = envDeploymentName;
                 }
                 else
                 {
-                    // Override environment variable with known working deployment
+                    // Override environment variable with known working deployment for standard endpoint
                     DeploymentName = "gpt-4.1";
                     if (!string.IsNullOrEmpty(envDeploymentName))
                     {
