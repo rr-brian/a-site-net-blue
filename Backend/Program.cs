@@ -65,18 +65,12 @@ builder.Services.AddScoped<Backend.Services.Interfaces.IFileValidationService, B
 builder.Services.AddScoped<Backend.Services.Interfaces.IRequestDiagnosticsService, Backend.Services.RequestDiagnosticsService>();
 builder.Services.AddScoped<Backend.Services.Interfaces.ILegacyEndpointHandler, Backend.Services.LegacyEndpointHandler>();
 builder.Services.AddScoped<Backend.Services.Interfaces.IOpenAIService, Backend.Services.OpenAIService>();
-// Register and configure Azure Function service with explicit validation
-var logger = builder.Services.BuildServiceProvider().GetRequiredService<ILogger<Program>>();
-logger.LogWarning("Registering Azure Function service with configuration checks");
-
 // Check if Azure Function configuration is available
 var functionUrl = builder.Configuration["AzureFunction:Url"] ?? Environment.GetEnvironmentVariable("AZURE_FUNCTION_URL");
 var functionKey = builder.Configuration["AzureFunction:Key"] ?? Environment.GetEnvironmentVariable("AZURE_FUNCTION_KEY");
 
-// Log configuration status during startup
-logger.LogWarning("STARTUP: Azure Function URL configured: {IsConfigured}, Key configured: {HasKey}", 
-    !string.IsNullOrEmpty(functionUrl),
-    !string.IsNullOrEmpty(functionKey));
+// Log configuration status during startup using console (logger not available yet)
+Console.WriteLine($"STARTUP: Azure Function URL configured: {!string.IsNullOrEmpty(functionUrl)}, Key configured: {!string.IsNullOrEmpty(functionKey)}");
 
 // Register the service
 builder.Services.AddScoped<Backend.Services.Interfaces.IAzureFunctionService, Backend.Services.AzureFunctionService>();
